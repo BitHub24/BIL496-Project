@@ -98,6 +98,14 @@ const MapComponent: React.FC = () => {
     };
   }, []);
 
+  const clearMarkers = () => {
+    if (!map) return;
+    if (sourceMarker) map.removeLayer(sourceMarker);
+    if (destinationMarker) map.removeLayer(destinationMarker);
+    setSourceMarker(null);
+    setDestinationMarker(null);
+  };
+
   const findNearestAddress = async (lat: number, lng: number): Promise<string> => {
     try {
       const response = await axios.get<NominatimResponse>('https://nominatim.openstreetmap.org/reverse', {
