@@ -202,7 +202,7 @@ const MapComponent: React.FC = () => {
 
   const getRoute = async (start: Marker, end: Marker) => {
     try {
-      const response = await axios.post<RouteResponse>('http://localhost:8000/api/route/', {
+      const response = await axios.post<RouteResponse>(`${process.env.REACT_APP_BACKEND_API_URL}`, {
         start,
         end
       });
