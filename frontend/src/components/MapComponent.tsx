@@ -98,13 +98,13 @@ const MapComponent: React.FC = () => {
     };
   }, []);
 
-  const clearMarkers = () => {
+  /*const clearMarkers = () => {
     if (!map) return;
     if (sourceMarker) map.removeLayer(sourceMarker);
     if (destinationMarker) map.removeLayer(destinationMarker);
     setSourceMarker(null);
     setDestinationMarker(null);
-  };
+  };*/
 
   const findNearestAddress = async (lat: number, lng: number): Promise<string> => {
     try {
@@ -192,17 +192,17 @@ const MapComponent: React.FC = () => {
       map.off('click', handleMapClick);
       map.off('contextmenu', handleContextMenu);
     };
-  }, [map, source, destination]);
+  });
 
   useEffect(() => {
     if (source && destination) {
       getRoute(source, destination);
     }
-  }, [source, destination]);
+  });
 
   const getRoute = async (start: Marker, end: Marker) => {
     try {
-      const response = await axios.post<RouteResponse>(`${process.env.REACT_APP_BACKEND_API_URL}`, {
+      const response = await axios.post<RouteResponse>(`${process.env.REACT_APP_BACKEND_API_URL}/api/route/`, {
         start,
         end
       });
@@ -210,7 +210,7 @@ const MapComponent: React.FC = () => {
       if (routeLayer && map) {
         map.removeLayer(routeLayer);
       }
-
+      console.log(response.data);
       const route = response.data.routes[0].geometry;
       const newRouteLayer = L.geoJSON(route).addTo(map!);
       setRouteLayer(newRouteLayer);
