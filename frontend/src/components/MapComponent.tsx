@@ -210,7 +210,6 @@ const MapComponent: React.FC = () => {
       if (routeLayer && map) {
         map.removeLayer(routeLayer);
       }
-      console.log(response.data);
       const route = response.data.routes[0].geometry;
       const newRouteLayer = L.geoJSON(route).addTo(map!);
       setRouteLayer(newRouteLayer);
