@@ -1,13 +1,17 @@
-import React from 'react';
-import './App.css';
-import MapComponent from './components/MapComponent';
+import React, { useState } from 'react';
+import Login from './components/Login';
+import MapComponent from './components/MapComponent'; // MapComponent, mevcut proje harita sayfası
 
 function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
   return (
     <div className="App">
-      <main>
+      {isLoggedIn ? (
         <MapComponent />
-      </main>
+      ) : (
+        <Login onLogin={() => setIsLoggedIn(true)} />
+      )}
     </div>
   );
 }
