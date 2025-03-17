@@ -202,11 +202,13 @@ const MapComponent: React.FC = () => {
 
   const getRoute = async (start: Marker, end: Marker) => {
     try {
+      console.log(process.env.REACT_APP_BACKEND_API_URL);
       const response = await axios.post<RouteResponse>(`${process.env.REACT_APP_BACKEND_API_URL}/api/route/`, {
         start,
         end
       });
-
+      
+      
       if (routeLayer && map) {
         map.removeLayer(routeLayer);
       }
