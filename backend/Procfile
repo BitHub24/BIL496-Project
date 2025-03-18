@@ -1,0 +1,3 @@
+web: gunicorn map_project.wsgi:application --log-file -
+worker: celery -A map_project worker --loglevel=info
+beat: celery -A map_project beat --scheduler django_celery_beat.schedulers:DatabaseScheduler --loglevel=info 
