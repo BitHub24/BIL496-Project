@@ -23,4 +23,5 @@ urlpatterns = [
     path('', include('pharmacy.urls')),
     path('api/users/', include('users.urls')),
     path('api/geocoding/', include('geocoding.urls')),
+    path('api/traffic/', include('traffic_data.urls')),
 ]
