@@ -1,0 +1,36 @@
+steps:
+  - name: 'node:18'
+    args:
+      - '-c'
+      - |
+        cd frontend
+        npm install
+        npm run build
+    id: Build React app
+    entrypoint: bash
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - '-t'
+      - gcr.io/bold-bastion-454011-k5/frontend-app
+      - ./frontend
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - gcr.io/bold-bastion-454011-k5/frontend-app
+  - name: gcr.io/cloud-builders/gcloud
+    args:
+      - run
+      - deploy
+      - frontend-app
+      - '--image'
+      - gcr.io/bold-bastion-454011-k5/frontend-app
+      - '--platform'
+      - managed
+      - '--region'
+      - us-central1
+      - '--allow-unauthenticated'
+images:
+  - gcr.io/bold-bastion-454011-k5/frontend-app
+options:
+  logging: CLOUD_LOGGING_ONLY
