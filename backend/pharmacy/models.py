@@ -8,6 +8,8 @@ class Pharmacy(models.Model):
     district = models.CharField(max_length=100, blank=True, verbose_name="Bölge")
     extra_info = models.TextField(blank=True, verbose_name="Ek Bilgi")
     date = models.DateField(verbose_name="Tarih")
+    latitude = models.FloatField(null=True, blank=True, verbose_name="Enlem")
+    longitude = models.FloatField(null=True, blank=True, verbose_name="Boylam")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -23,8 +25,7 @@ class Pharmacy(models.Model):
     @property
     def location(self):
         """Returns a dict with location data if available."""
-        # Implement geocoding logic in the future if needed
         return {
-            "lat": None,
-            "lng": None
+            "lat": self.latitude,
+            "lng": self.longitude
         } 

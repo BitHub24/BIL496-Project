@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'pharmacy',
     'django_celery_beat',
     'users',  # Yeni eklenen kullanıcı yönetimi uygulaması
+    'geocoding',  # HERE API için geocoding uygulaması
 ]
 
 MIDDLEWARE = [
@@ -157,6 +158,10 @@ CORS_ALLOWED_ORIGINS = [
 
 # Add your OSRM server URL here (we'll use a public instance)
 OSRM_SERVER_URL = "http://router.project-osrm.org"
+
+# HERE API ayarları
+HERE_API_KEY = os.environ.get('HERE_API_KEY', '')
+HERE_API_BASE_URL = "https://geocode.search.hereapi.com/v1/geocode"
 
 # Celery ayarları
 CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
