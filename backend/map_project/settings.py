@@ -13,6 +13,11 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 import os
 import dj_database_url
+from dotenv import load_dotenv
+from .db_config import DATABASE_CONFIG  # İmport'u tekrar aktif hale getiriyoruz
+
+# .env dosyasını yükle
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,10 +27,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-x&1m(=t26tb0m=e#8t!o_%fp*ve0tg6ni23$@^%x)eq4@3^^7g')
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-x&1m(=t26tb0m=e#8t!o_%fp*ve0tg6ni23$@^%x)eq4@3^^7g')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 ALLOWED_HOSTS = ["bil496-project.onrender.com", "127.0.0.1", "localhost"]
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
@@ -43,10 +48,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework.authtoken',  # Token tabanlı kimlik doğrulama için
     'corsheaders',
     'directions',
     'pharmacy',
     'django_celery_beat',
+    'users',  # Yeni eklenen kullanıcı yönetimi uygulaması
 ]
 
 MIDDLEWARE = [
@@ -85,12 +92,8 @@ WSGI_APPLICATION = 'map_project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
+# db_config.py'den veritabanı yapılandırmasını al
+DATABASES = DATABASE_CONFIG
 
 # Render.com PostgreSQL veritabanı bağlantısı
 DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -162,3 +165,14 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Europe/Istanbul'
+
+# REST Framework ayarları
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ],
+}
