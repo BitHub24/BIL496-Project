@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'users',  # Yeni eklenen kullanıcı yönetimi uygulaması
     'geocoding',  # HERE API için geocoding uygulaması
     'django_crontab',  # Cronjob yönetimi için
+    'traffic_data',  # Trafik verilerini toplama modülü
 ]
 
 MIDDLEWARE = [
@@ -171,6 +172,14 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Europe/Istanbul'
+
+# Celery Beat ayarları
+CELERY_BEAT_SCHEDULE = {
+    'collect_traffic_data_every_15_minutes': {
+        'task': 'collect_traffic_data_task',
+        'schedule': 15 * 60,  # 15 dakikada bir (saniye cinsinden)
+    },
+}
 
 # REST Framework ayarları
 REST_FRAMEWORK = {
