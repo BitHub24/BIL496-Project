@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'users',  # Yeni eklenen kullanıcı yönetimi uygulaması
     'geocoding',  # HERE API için geocoding uygulaması
+    'django_crontab',  # Cronjob yönetimi için
 ]
 
 MIDDLEWARE = [
@@ -181,3 +182,10 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticatedOrReadOnly',
     ],
 }
+
+# Crontab ayarları
+CRONJOBS = [
+    # Artık kullanılmayan nöbetçi eczane güncelleme görevi
+    # ('0 6 * * *', 'django.core.management.call_command', ['update_pharmacy_locations']),
+    # ('0 */1 * * *', 'django.core.management.call_command', ['update_pharmacy_locations']),
+]

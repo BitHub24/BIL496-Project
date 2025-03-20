@@ -16,6 +16,10 @@ from datetime import datetime, timedelta
 import re
 import json
 import logging  # Logging modülünü ekledik
+import requests
+from django.utils import timezone
+from django.conf import settings
+from pharmacy.models import Pharmacy
 
 # Log ayarları
 def setup_logging():
@@ -393,6 +397,53 @@ def get_duty_pharmacies():
         
         logger.info(f"Tekrarlananlar kaldırıldıktan sonra {len(unique_data)} adet tekil eczane kaldı.")
         
+        # Geocoding API'si için konum bilgilerini ekleyelim
+        geocoded_count = 0
+        for eczane in unique_data:
+            try:
+                # Eczane bilgilerini birleştirerek arama sorgusu oluşturalım
+                query = f"{eczane['Eczane Adı']} {eczane['Adres']} {eczane.get('Bölge', '')}"
+                
+                # Geocoding API'sine istek at
+                logger.info(f"Konum bilgisi alınıyor: {eczane['Eczane Adı']}")
+                try:
+                    response = requests.get(
+                        "https://geocode.search.hereapi.com/v1/geocode",
+                        params={
+                            "q": query,
+                            "apiKey": settings.HERE_API_KEY,
+                            "limit": 1
+                        }
+                    )
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get('items') and len(data['items']) > 0:
+                            position = data['items'][0].get('position')
+                            if position:
+                                # Eczane verisine konum bilgisini ekle
+                                eczane['latitude'] = position['lat']
+                                eczane['longitude'] = position['lng']
+                                geocoded_count += 1
+                                logger.info(f"Konum bulundu: {eczane['Eczane Adı']} - {position['lat']}, {position['lng']}")
+                            else:
+                                logger.warning(f"Konum bulunamadı: {eczane['Eczane Adı']}")
+                        else:
+                            logger.warning(f"Sonuç bulunamadı: {eczane['Eczane Adı']}")
+                    else:
+                        logger.warning(f"Geocoding API hatası: {response.status_code} - {eczane['Eczane Adı']}")
+                
+                except Exception as e:
+                    logger.error(f"Geocoding işlemi sırasında hata: {str(e)} - {eczane['Eczane Adı']}")
+                
+                # Her istekten sonra API'yi aşırı yüklememek için kısa bir bekletme
+                time.sleep(0.5)
+                
+            except Exception as e:
+                logger.error(f"Eczane konum güncellemesi sırasında hata: {str(e)}")
+        
+        logger.info(f"Toplam {geocoded_count} eczaneye konum bilgisi eklendi.")
+        
         # Verileri JSON dosyasına kaydet - sadece tarih kullanarak
         date_str = datetime.now().strftime('%Y%m%d')
         json_dosya = f"EczaneData/{date_str}.json"
@@ -402,5 +453,39 @@ def get_duty_pharmacies():
             
         logger.info(f"Veriler '{json_dosya}' dosyasına JSON formatında kaydedildi.")
         logger.info(f"Dosya konumu: {os.path.abspath(json_dosya)}")
+        
+        # Veritabanını güncelle
+        try:
+            # Bugünün tarihi
+            today = timezone.now().date()
+            
+            # Veritabanındaki bugünün verilerini temizle
+            Pharmacy.objects.filter(date=today).delete()
+            logger.info(f"Veritabanındaki bugüne ait veriler silindi.")
+            
+            # Yeni eczane verilerini veritabanına kaydet
+            saved_count = 0
+            
+            for eczane_info in unique_data:
+                # Eczane veritabanı kaydını oluştur
+                pharmacy = Pharmacy(
+                    name=eczane_info['Eczane Adı'],
+                    address=eczane_info['Adres'],
+                    phone=eczane_info['Telefon'],
+                    district=eczane_info.get('Bölge', ''),
+                    extra_info=eczane_info.get('Ek Bilgi', ''),
+                    date=datetime.strptime(eczane_info['Tarih'], '%Y-%m-%d').date(),
+                    latitude=eczane_info.get('latitude'),
+                    longitude=eczane_info.get('longitude')
+                )
+                
+                # Eczaneyi kaydet
+                pharmacy.save()
+                saved_count += 1
+            
+            logger.info(f"Toplam {saved_count} eczane veritabanına kaydedildi.")
+            
+        except Exception as e:
+            logger.error(f"Veritabanı güncellemesi sırasında hata: {str(e)}")
         
         return unique_data 
