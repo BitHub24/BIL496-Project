@@ -51,16 +51,19 @@ interface RouteResponse {
     geometry: GeoJSON.Geometry;
   }>;
 }
+interface AddressComponent {
+  long_name: string;
+  types: string[];
+}
 
-interface NominatimResponse {
-  display_name: string;
-  lat: string;
-  lon: string;
-  address: {
-    road?: string;
-    house_number?: string;
-    [key: string]: string | undefined;
-  };
+interface GeocodeResult {
+  address_components: AddressComponent[];
+  formatted_address: string;
+}
+
+interface GeocodeResponse {
+  status: string;
+  results: GeocodeResult[];
 }
 
 const MapComponent: React.FC = () => {
@@ -107,31 +110,47 @@ const MapComponent: React.FC = () => {
   };*/
 
   const findNearestAddress = async (lat: number, lng: number): Promise<string> => {
+    const API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+    
     try {
-      const response = await axios.get<NominatimResponse>('https://nominatim.openstreetmap.org/reverse', {
+      if (!API_KEY) {
+        throw new Error('Google Maps API key is missing. Set REACT_APP_GOOGLE_MAPS_API_KEY in your .env file.');
+      }
+  
+      const response = await axios.get<GeocodeResponse>('https://maps.googleapis.com/maps/api/geocode/json', {
         params: {
-          lat,
-          lon: lng,
-          format: 'json',
-          addressdetails: 1
+          latlng: `${lat},${lng}`,
+          key: API_KEY
         }
       });
+  
+      const data = response.data;
+      console.log(data);
       
-      if (response.data && response.data.display_name) {
-        // Try to get street name and number from address details
-        const address = response.data.address;
-        if (address.road && address.house_number) {
-          return `${address.road} ${address.house_number}`;
-        }
-        // Fall back to first part of display name
-        return response.data.display_name.split(',')[0];
+      if (data.status !== 'OK' || !Array.isArray(data.results) || data.results.length === 0) {
+        console.warn('No address found for the given coordinates or response structure is invalid.');
+        return '';
       }
-      return '';
+  
+      const result = data.results[0];
+      const addressComponents = result.address_components;
+  
+      // Extract street number and street name
+      const streetNumber = addressComponents.find((comp) => comp.types.includes('street_number'))?.long_name;
+      const streetName = addressComponents.find((comp) => comp.types.includes('route'))?.long_name;
+  
+      if (streetName && streetNumber) {
+        return `${streetName} ${streetNumber}`;
+      }
+  
+      // Fallback to full formatted address
+      return result.formatted_address || '';
     } catch (error) {
       console.error('Error finding nearest address:', error);
       return '';
     }
   };
+  
 
   const addMarker = async (lat: number, lng: number, isSource: boolean) => {
     if (!map) return;

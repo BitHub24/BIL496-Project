@@ -1,15 +1,22 @@
-import React from 'react';
+import React from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import MapComponent from "./components/MapComponent";
 import './App.css';
-import MapComponent from './components/MapComponent';
+import Login from "./components/LoginComponent";
 
-function App() {
+const App = () => {
   return (
-    <div className="App">
-      <main>
-        <MapComponent />
-      </main>
-    </div>
+    <BrowserRouter>
+      <div className="App">
+        <main>
+          <Routes>
+            <Route path="/" element={<Login/>} />
+            <Route path="/map" element={<MapComponent/>} />
+          </Routes>
+        </main>
+      </div>
+    </BrowserRouter>
   );
-}
+};
 
 export default App;
