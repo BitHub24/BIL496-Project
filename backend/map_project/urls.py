@@ -24,4 +24,5 @@ urlpatterns = [
     path('api/users/', include('users.urls')),
     path('api/geocoding/', include('geocoding.urls')),
     path('api/traffic/', include('traffic_data.urls')),
+    path('api/wifi-points/', include('wifi_points.urls')),
 ]

@@ -73,4 +73,46 @@
     right: 12px;
     padding: 10px 12px;
   }
+}
+
+/* WiFi Noktaları için stil */
+.wifi-toggle-container {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+.wifi-toggle-btn {
+  padding: 8px 15px;
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.wifi-toggle-btn.active {
+  background-color: #007bff;
+  color: white;
+  border-color: #0069d9;
+}
+
+.wifi-toggle-btn:hover {
+  background-color: #e9ecef;
+}
+
+.wifi-toggle-btn.active:hover {
+  background-color: #0069d9;
+}
+
+.wifi-popup h3 {
+  margin: 0 0 8px 0;
+  color: #007bff;
+  font-size: 16px;
+}
+
+.wifi-popup p {
+  margin: 4px 0;
+  font-size: 14px;
 } 
