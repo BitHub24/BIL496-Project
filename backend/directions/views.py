@@ -4,10 +4,13 @@ from rest_framework.response import Response
 from rest_framework import status
 import requests
 from django.conf import settings
+from rest_framework.permissions import AllowAny
 
 # Create your views here.
 
 class DirectionsView(APIView):
+    permission_classes = [AllowAny]  # Kimlik doğrulaması gerektirmeyen izin sınıfı
+    
     def post(self, request):
         try:
             # Extract coordinates from request

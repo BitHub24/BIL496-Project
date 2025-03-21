@@ -1,0 +1,5 @@
+# Nöbetçi eczane verileri için cron yapılandırması
+# Bu dosya sadece referans içindir, sistemde crontab'a eklenmelidir
+
+# Her gün saat 05:30'da nöbetçi eczane verilerini çek
+30 5 * * * cd /path/to/your/django/project && python3 manage.py fetch_duty_pharmacies > /path/to/your/django/project/logs/cron_pharmacies.log 2>&1 

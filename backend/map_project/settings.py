@@ -11,6 +11,13 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+import os
+import dj_database_url
+from dotenv import load_dotenv
+from .db_config import DATABASE_CONFIG  # İmport'u tekrar aktif hale getiriyoruz
+
+# .env dosyasını yükle
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,11 +27,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-x&1m(=t26tb0m=e#8t!o_%fp*ve0tg6ni23$@^%x)eq4@3^^7g'
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-x&1m(=t26tb0m=e#8t!o_%fp*ve0tg6ni23$@^%x)eq4@3^^7g')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
+ALLOWED_HOSTS = ["bil496-project.onrender.com", "127.0.0.1", "localhost"]
+RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 ALLOWED_HOSTS = ["bil496-project.onrender.com","localhost"]
 
 
@@ -38,12 +49,20 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework.authtoken',  # Token tabanlı kimlik doğrulama için
     'corsheaders',
     'directions',
+    'pharmacy',
+    'django_celery_beat',
+    'users',  # Yeni eklenen kullanıcı yönetimi uygulaması
+    'geocoding',  # HERE API için geocoding uygulaması
+    'django_crontab',  # Cronjob yönetimi için
+    'traffic_data',  # Trafik verilerini toplama modülü
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Statik dosyalar için
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -77,12 +96,17 @@ WSGI_APPLICATION = 'map_project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
+# db_config.py'den veritabanı yapılandırmasını al
+DATABASES = DATABASE_CONFIG
+
+# Render.com PostgreSQL veritabanı bağlantısı
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    DATABASES['default'] = dj_database_url.config(
+        default=DATABASE_URL,
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 
 
 # Password validation
@@ -119,7 +143,9 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -127,10 +153,53 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = True  # Only for development
+CORS_ALLOW_ALL_ORIGINS = True  # Sadece geliştirme için
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "https://bil496-project.onrender.com",
 ]
 
 # Add your OSRM server URL here (we'll use a public instance)
 OSRM_SERVER_URL = "http://router.project-osrm.org"
+
+# HERE API ayarları
+HERE_API_KEY = os.environ.get('HERE_API_KEY', '')
+HERE_API_BASE_URL = "https://geocode.search.hereapi.com/v1/geocode"
+
+# Celery ayarları
+CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Europe/Istanbul'
+
+# Celery Beat ayarları
+CELERY_BEAT_SCHEDULE = {
+    'collect_traffic_data_every_15_minutes': {
+        'task': 'collect_traffic_data_task',
+        'schedule': 15 * 60,  # 15 dakikada bir (saniye cinsinden)
+    },
+}
+
+# REST Framework ayarları
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ],
+}
+
+# Crontab ayarları
+CRONJOBS = [
+    # Nöbetçi eczane verileri için günlük görev
+    ('0 6 * * *', 'django.core.management.call_command', ['fetch_duty_pharmacies']),
+    # Trafik verilerini toplama görevi (15 dakikada bir)
+    ('*/15 * * * *', 'traffic_data.cron.collect_traffic_data_cron'),
+]
+
+# Crontab komut öneki (virtual environment'ı aktifleştirmek için)
+CRONTAB_COMMAND_PREFIX = 'source ' + os.path.join(BASE_DIR, 'venv/bin/activate') + ' && '

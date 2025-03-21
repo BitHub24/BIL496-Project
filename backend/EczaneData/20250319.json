@@ -1,0 +1,418 @@
+[
+    {
+        "Eczane Adı": "AKYURT OKAN ECZANESİ",
+        "Adres": "Yeşiltepe Mh.Çubuk Cad.No:8/C Akyurt/ ANKARA",
+        "Telefon": "03128442688",
+        "Ek Bilgi": "Yeni Devlet Hastanesi Karşısı",
+        "Bölge": "Karşısı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "ALTIN ECZANESİ",
+        "Adres": "Bağlarbaşı Mah. Bursa Cad. No:53/A Keçiören/ANKARA",
+        "Telefon": "03123384600",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "ARINMIŞ ECZANESİ",
+        "Adres": "Yukarı Mah. Leblebici Sok.No:19 Güdül/ ANKARA",
+        "Telefon": "05301178589",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "BALA MERKEZ  ECZANESİ",
+        "Adres": "Şentepe Mah.Atatürk Bulvarı No:86/C Bala/ ANKARA",
+        "Telefon": "03128761023",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "BAŞ ECZANESİ",
+        "Adres": "Atatürk Mah. Polatlı2 Cad. No:50/A Sincan/ANKARA",
+        "Telefon": "03122700107",
+        "Ek Bilgi": "Lokman Hekim Hast.ön kapı kar.",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "BAŞAK2 ECZANESİ",
+        "Adres": "Başak Mah. Başak Cad. No:9/B Hüseyingazi-Mamak/ANKARA",
+        "Telefon": "03123758451",
+        "Ek Bilgi": "Şair Nedim İlköğretim Okulu yakını",
+        "Bölge": "yakını",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "BATI ANTAKYA ECZANESİ",
+        "Adres": "Turgut Özal Mah.2302.Cad.2558.Sok. No:1/A Yenimahalle/ ANKARA",
+        "Telefon": "05432546994",
+        "Ek Bilgi": "Mehmet Akif İnan İlkokulu yanı",
+        "Bölge": "yanı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "BEYAZ ECZANESİ",
+        "Adres": "Ulucanlar Cad. No:84 Cebeci /Altındağ/ ANKARA",
+        "Telefon": "03123635150",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "BORAM ECZANESİ",
+        "Adres": "Şahap Gürler Mah. 1229.Sok. No:10/17 Mamak/ANKARA",
+        "Telefon": "03123720202",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "BURCU DEMİRCİOĞLU ECZANESİ",
+        "Adres": "Karapınar Mah. Dikmen Cad. No:422/B Dikmen/Çankaya",
+        "Telefon": "03123260757",
+        "Ek Bilgi": "PTT Yanı",
+        "Bölge": "Yanı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "CEVAHİR ECZANESİ",
+        "Adres": "Ahi Mesut Mah. 1904.Sok.İrem Çarşısı No:11/C-10 Etimesgut/ ANKARA",
+        "Telefon": "03122260556",
+        "Ek Bilgi": "Kelebeksu Parkı arkası",
+        "Bölge": "arkası",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "DANİŞMENT ECZANESİ",
+        "Adres": "Yunus Emre Cad. No:152/C İncirli / Keçiören/ ANKARA",
+        "Telefon": "03123142537",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "DELİCE ECZANESİ",
+        "Adres": "Cumhuriyet Mah. Atatürk Bulvarı No:6/C Delice/ KIRIKKALE",
+        "Telefon": "03186185609",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "DEVALAR ECZANESİ",
+        "Adres": "Atatürk Mah. Osmanlı Cad. No:78/B Kahramankazan/ ANKARA",
+        "Telefon": "05441760237",
+        "Ek Bilgi": "Yeni Devlet Hastanesi yanı",
+        "Bölge": "yanı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "EFE ECZANESİ",
+        "Adres": "Bağlıca Mah. Mermeroğlu Cad. No:72/5 Bağlıca/ Etimesgut/ ANKARA",
+        "Telefon": "03125435644",
+        "Ek Bilgi": "Mermeroğlu Cd. Carrefour Yanı",
+        "Bölge": "Yanı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "ELMADAĞ  ECZANESİ",
+        "Adres": "İsmetpaşa Mah.Cumhuriyet Cad.No:61/A Elmadağ/ANKARA",
+        "Telefon": "03128633193",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "ESİN KURANEL ECZANESİ",
+        "Adres": "G.O.P Mah Uğur Mumcu Cad.No:55/5 Çankaya/ANKARA",
+        "Telefon": "03124363555",
+        "Ek Bilgi": "Eski Köroğlu Cd.(Müslüm Kebap Kar)",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "EVREN ECZANESİ",
+        "Adres": "Bağlarbaşı Mah. Dr.Mehmet Ay Cad. No:7 Merkez/KIRIKKALE",
+        "Telefon": "03182340499",
+        "Ek Bilgi": "(Yüksek İhtisas Hastanesi karşısı)",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "GORDİON ECZANESİ",
+        "Adres": "Koru Mah.Ankaralılar Cad. Gordion AVM No:2/B Çankaya/ANKARA",
+        "Telefon": "03122367130",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "GÖKÇE  ECZANESİ",
+        "Adres": "Camiatik Mah. Hekim Şaban Şifai Cad. No:3 Ayaş / ANKARA",
+        "Telefon": "03127121159",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "GÜN ECZANESİ",
+        "Adres": "Cevizlidere Mah.1283 Sok. No:6/A Balgat/ Çankaya/ANKARA",
+        "Telefon": "03124727778",
+        "Ek Bilgi": "Ehlibeyt Sağ.Ocağı-(1228 -1283 Sk.)",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "HAKANIN ECZANESİ",
+        "Adres": "Tepealtı Mah. İvedik Cad. Serin Sok. No:6/1 Yenimahalle/ANKARA",
+        "Telefon": "03123153288",
+        "Ek Bilgi": "3 Nolu ASM Yanı-İstikbal Mağz.kar.",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "HASKÖY ECZANESİ",
+        "Adres": "Güneşevler Mah. 128. Cad. No:9/B\r\nAltındağ/ ANKARA",
+        "Telefon": "03125172275",
+        "Ek Bilgi": "Hasköy Semt Polikliniği Karşısı",
+        "Bölge": "Karşısı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "HAYAT ECZANESİ",
+        "Adres": "Yenişehir Mah. 260.sok No:2/D Yahşihan/KIRIKKALE",
+        "Telefon": "03182240660",
+        "Ek Bilgi": "Tıp Fakültesi Hastanesi karşısı",
+        "Bölge": "karşısı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "KAAN ECZANESİ",
+        "Adres": "Şahintepe Mah. Natoyolu Cad. No:73/D Mamak/ ANKARA",
+        "Telefon": "03129999731",
+        "Ek Bilgi": "Hacı Bektaş Veli (Tekmezar) parkı yanı",
+        "Bölge": "yanı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "KARAKEÇİLİ ECZANESİ",
+        "Adres": "Fatih Sultan Mehmet Mah.Hürriyet Cad.No:4/A Karakeçili/ KIRIKKALE",
+        "Telefon": "03184743643",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "KOÇYİĞİT  ECZANESİ",
+        "Adres": "Yeni Mah.İsmet Paşa Cad.No:44/A Şereflikoçhisar/ANKARA",
+        "Telefon": "03126871186",
+        "Ek Bilgi": "As Kebap Yanı",
+        "Bölge": "Yanı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "MEHTAP AKIN ECZANESİ",
+        "Adres": "Yunus Emre Mah. Yunus Emre Cad. No:95/A Pursaklar",
+        "Telefon": "03123288855",
+        "Ek Bilgi": "Duru Tıp Merkezi Karşısı",
+        "Bölge": "Karşısı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "MELEK ECZANESİ",
+        "Adres": "Saray Cumhuriyet Mah. Kırgız Cad. No:30/C Pursaklar/ ANKARA",
+        "Telefon": "03125147575",
+        "Ek Bilgi": "(Gümüşoluk yolu üzeri)",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "MERT ECZANESİ",
+        "Adres": "Bozkurt Mh.Hastane Sok. No:6 Keskin/KIRIKKALE",
+        "Telefon": "03185154760",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "NALLIHAN ECZANESİ",
+        "Adres": "Aliağa Mah. Bursa Cad. No:36 Nallıhan / ANKARA",
+        "Telefon": "03127851707",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "NARÇİÇEĞİ ECZANESİ",
+        "Adres": "Yukarı Bahçelievler Mah. Taşkent Cad (Eski1.Cd). No:81 Çankaya/ ANKARA",
+        "Telefon": "03122153726",
+        "Ek Bilgi": "Deneme Lisesi çaprazı",
+        "Bölge": "çaprazı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "NİLSU ECZANESİ",
+        "Adres": "Ostim Mah. Uzayçağı Cad. No:72/18 Yenimahalle",
+        "Telefon": "03123943661",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "NİLÜFER ECZANESİ",
+        "Adres": "Fatih Mah. Atatürk Cad. No:164/A Polatlı/ ANKARA",
+        "Telefon": "03126235969",
+        "Ek Bilgi": "1 Nolu ASM Karşısı",
+        "Bölge": "Karşısı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "ÖZER ECZANESİ",
+        "Adres": "Şafak Mah. 851. Sok. No:1/C Gölbaşı / ANKARA",
+        "Telefon": "03124846654",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "ÖZGÜL ECZANESİ",
+        "Adres": "Ayvaşık Mah. 75.Yıl Bulvarı No:95/C Beypazarı/ ANKARA",
+        "Telefon": "05538987553",
+        "Ek Bilgi": "4 Nolu ASM karşısı-Beysan arkası",
+        "Bölge": "arkası",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "SAĞLIK ECZANESİ",
+        "Adres": "Yeni Mah. Koopratif Evleri Sokak No:13/A Haymana/ ANKARA",
+        "Telefon": "03126582267",
+        "Ek Bilgi": "Kültür Merkezi Karşısı-ASM yanı",
+        "Bölge": "yanı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "SAMİ ECZANESİ",
+        "Adres": "Yenidoğan Mah. Zafer Cad. No:56/I  Merkez/ KIRIKKALE",
+        "Telefon": "03182021313",
+        "Ek Bilgi": "Kızılkanat İş Merk.Girişi Kapısı altı",
+        "Bölge": "altı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "SEVİNÇ ECZANESİ",
+        "Adres": "Mustafa Kemal Mah.Vural Baylan Bulvarı No:101/B Yenikent-Sincan/ ANKARA",
+        "Telefon": "03125434543",
+        "Ek Bilgi": "Yenikent 3 Nolu Sağlık Ocağı Karşısı",
+        "Bölge": "Karşısı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "SİNCAN MEYDAN ECZANESİ",
+        "Adres": "Atatürk Mah. Ankara Cad. No:36/C Sincan /ANKARA",
+        "Telefon": "03128735555",
+        "Ek Bilgi": "Lale Meydanı karşısı",
+        "Bölge": "karşısı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "SİNEM ECZANESİ",
+        "Adres": "Gülveren Mah. Abdulhakhamit Cad. No:10/C Mamak",
+        "Telefon": "05010434195",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "TULUNAY ECZANESİ",
+        "Adres": "Aşağı Eğlence Mah. Ayvalı Cad. No:22/B Keçiören/ ANKARA",
+        "Telefon": "03123238881",
+        "Ek Bilgi": "Etlik Şehir Hast.G8 Kapısı Karşısı",
+        "Bölge": "Karşısı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "VERESELİ KADİR  ECZANESİ",
+        "Adres": "Yenice Mah.Şehit Mehmet Erdem Cad. No:12/C Kızılcahamam/ ANKARA",
+        "Telefon": "03127366464",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "VERESELİ MEHTAP UYSAL ECZANESİ",
+        "Adres": "Beytepe Mah. Kanuni Sultan Süleyman Bulvarı Kent Form İş Merkezi No:14/C-3 Çankaya/ ANKARA",
+        "Telefon": "05322906689",
+        "Ek Bilgi": "Ametis Rezidans Karşısı",
+        "Bölge": "Karşısı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "VERESELİ TEMELLİ ECZANESİ",
+        "Adres": "TEMELLİ-İstiklal Mah. Hürriyet Cad. No:30/B Temelli/Sincan/ANKARA",
+        "Telefon": "03126451163",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "YAPRAK ECZANESİ",
+        "Adres": "Yavuz Selim Mah. Şeyh Şamil Bulvarı No:5/B Çubuk / ANKARA",
+        "Telefon": "03128377763",
+        "Ek Bilgi": "Kiler Alışveriş Marketi kar.",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "YAŞAR ECZANESİ",
+        "Adres": "Pınarbaşı Mah. Sanatoryum Cad. No:228 Keçiören / ANKARA",
+        "Telefon": "03123577878",
+        "Ek Bilgi": "K.Ören Eğtm. Arş.Has.Köşesi",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "YENİ ECZANESİ",
+        "Adres": "Atakent Mh.804.Cad.No:3/C /O Elvankent/ Etimesgut/ ANKARA (TK1 Çarşısı Banka Blokları)",
+        "Telefon": "03122603120",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "YENİ OLCAY  ECZANESİ",
+        "Adres": "Uçarlı Sok. No:31/C Yukarı Ayrancı /Çankaya/ ANKARA",
+        "Telefon": "03124677991",
+        "Ek Bilgi": "Ayrancı Kapalı Pazarı Karşısı",
+        "Bölge": "Karşısı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "YENİ ŞEKER ECZANESİ",
+        "Adres": "Şeker Mah.1408 Cad.No:17/D Eryaman/ Etimesgut/ANKARA",
+        "Telefon": "03122805106",
+        "Ek Bilgi": "Dört Mevsim Sitesi yakını",
+        "Bölge": "yakını",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "YOLCU ECZANESİ",
+        "Adres": "Yukarı Yahyalar Mah. İvedik Cad.No:480/J Yenimahalle/ANKARA",
+        "Telefon": "03125574882",
+        "Ek Bilgi": "Yahyalar Merkez Cami Karşısı",
+        "Bölge": "Karşısı",
+        "Tarih": "2025-03-19"
+    },
+    {
+        "Eczane Adı": "YUNUS ECZANESİ",
+        "Adres": "Tuna Cad. No:32/A   Yenişehir/Çankaya/ANKARA",
+        "Telefon": "03124316786",
+        "Ek Bilgi": "",
+        "Bölge": "",
+        "Tarih": "2025-03-19"
+    }
+]

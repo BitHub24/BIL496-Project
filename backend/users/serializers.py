@@ -1,0 +1,75 @@
+from rest_framework import serializers
+from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from .models import UserProfile
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ('phone_number', 'address')
+
+class UserSerializer(serializers.ModelSerializer):
+    user_profile = UserProfileSerializer(required=False)
+    
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'user_profile')
+        read_only_fields = ('id',)
+        extra_kwargs = {
+            'username': {'required': False},
+            'email': {'required': False}
+        }
+    
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop('user_profile', None)
+        
+        # Update User fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # Update UserProfile fields if provided
+        if profile_data and hasattr(instance, 'user_profile'):
+            for attr, value in profile_data.items():
+                setattr(instance.user_profile, attr, value)
+            instance.user_profile.save()
+            
+        return instance
+
+class RegisterSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
+    
+    class Meta:
+        model = User
+        fields = ('username', 'password', 'email', 'first_name', 'last_name')
+        extra_kwargs = {
+            'first_name': {'required': True},
+            'last_name': {'required': True}
+        }
+    
+    def validate(self, attrs):
+        if User.objects.filter(email=attrs['email']).exists():
+            raise serializers.ValidationError({"email": "Bu e-posta adresi zaten kullanımda."})
+        
+        return attrs
+    
+    def create(self, validated_data):
+        user = User.objects.create(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name']
+        )
+        
+        user.set_password(validated_data['password'])
+        user.save()
+        
+        return user
+
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField(required=True)
+    password = serializers.CharField(required=True, write_only=True)
+    
+    def validate(self, attrs):
+        return attrs 
