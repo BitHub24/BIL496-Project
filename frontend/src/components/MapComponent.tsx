@@ -112,7 +112,6 @@ const MapComponent: React.FC = () => {
   const findNearestAddress = async (lat: number, lng: number): Promise<string> => {
     
     try {
-  
       const response = await axios.get<GeocodeResponse>('https://maps.googleapis.com/maps/api/geocode/json', {
         params: {
           latlng: `${lat},${lng}`,
@@ -122,11 +121,6 @@ const MapComponent: React.FC = () => {
   
       const data = response.data;
       console.log(data);
-      
-      if (data.status !== 'OK' || !Array.isArray(data.results) || data.results.length === 0) {
-        console.warn('No address found for the given coordinates or response structure is invalid.');
-        return '';
-      }
   
       const result = data.results[0];
       const addressComponents = result.address_components;
@@ -217,8 +211,7 @@ const MapComponent: React.FC = () => {
 
   const getRoute = async (start: Marker, end: Marker) => {
     try {
-      console.log(process.env.REACT_APP_BACKEND_API_URL);
-      const response = await axios.post<RouteResponse>(`${process.env.REACT_APP_BACKEND_API_URL}/api/route/`, {
+      const response = await axios.post<RouteResponse>(`${process.env.REACT_APP_BACKEND_API_URL}/api/directions/route/`, {
         start,
         end
       });
