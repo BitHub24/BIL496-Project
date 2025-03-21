@@ -194,7 +194,11 @@ REST_FRAMEWORK = {
 
 # Crontab ayarları
 CRONJOBS = [
-    # Artık kullanılmayan nöbetçi eczane güncelleme görevi
-    # ('0 6 * * *', 'django.core.management.call_command', ['update_pharmacy_locations']),
-    # ('0 */1 * * *', 'django.core.management.call_command', ['update_pharmacy_locations']),
+    # Nöbetçi eczane verileri için günlük görev
+    ('0 6 * * *', 'django.core.management.call_command', ['fetch_duty_pharmacies']),
+    # Trafik verilerini toplama görevi (15 dakikada bir)
+    ('*/15 * * * *', 'traffic_data.cron.collect_traffic_data_cron'),
 ]
+
+# Crontab komut öneki (virtual environment'ı aktifleştirmek için)
+CRONTAB_COMMAND_PREFIX = 'source ' + os.path.join(BASE_DIR, 'venv/bin/activate') + ' && '

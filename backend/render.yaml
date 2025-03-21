@@ -14,77 +14,23 @@ services:
         generateValue: true
       - key: DATABASE_URL
         fromDatabase:
-          name: pharmacy-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          name: redis-queue
-          type: redis
+          name: bithub-db
           property: connectionString
       - key: GOOGLE_CHROME_BIN
         value: "/usr/bin/google-chrome-stable"
       - key: CHROMEDRIVER_PATH
         value: "./bin/chromedriver"
 
-  # Celery Worker yapılandırması
-  - type: worker
-    name: bil496-worker
-    env: python
-    buildCommand: "./build.sh"
-    startCommand: "celery -A map_project worker --loglevel=info"
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
-      - key: DEBUG
-        value: false
-      - key: SECRET_KEY
-        generateValue: true
-      - key: DATABASE_URL
-        fromDatabase:
-          name: pharmacy-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          name: redis-queue
-          type: redis
-          property: connectionString
-      - key: GOOGLE_CHROME_BIN
-        value: "/usr/bin/google-chrome-stable"
-      - key: CHROMEDRIVER_PATH
-        value: "./bin/chromedriver"
-
-  # Celery Beat yapılandırması
-  - type: worker
-    name: bil496-beat
-    env: python
-    buildCommand: "./build.sh"
-    startCommand: "celery -A map_project beat --scheduler django_celery_beat.schedulers:DatabaseScheduler --loglevel=info"
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
-      - key: DEBUG
-        value: false
-      - key: SECRET_KEY
-        generateValue: true
-      - key: DATABASE_URL
-        fromDatabase:
-          name: pharmacy-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          name: redis-queue
-          type: redis
-          property: connectionString
-
-# Redis servisi
-  - type: redis
-    name: redis-queue
-    ipAllowList:
-      - source: 0.0.0.0/0
-        description: everywhere
+# Redis servisi artık kullanılmıyor, django-crontab ile değiştirildi
+# - type: redis
+#   name: redis-queue
+#   ipAllowList:
+#     - source: 0.0.0.0/0
+#       description: everywhere
 
 # PostgreSQL veritabanı
 databases:
-  - name: pharmacy-db
-    databaseName: pharmacy_db
+  - name: bithub-db
+    databaseName: bithub
+    user: admin
     plan: free 
