@@ -9,8 +9,6 @@ steps:
         npm run build
     id: Build React app
     entrypoint: bash
-    env:
-      - 'REACT_APP_BACKEND_API_URL=https://bil496-project.onrender.com'  # Add backend API URL as an env variable
 
   - name: gcr.io/cloud-builders/docker
     args:
