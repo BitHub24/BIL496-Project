@@ -77,16 +77,52 @@ const Button = styled.button`
   }
 `;
 
+const ErrorMessage = styled.p`
+  color: #ef4444;
+  font-size: 0.875rem;
+  text-align: center;
+`;
+
 // Login Component
 const Login = () => {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e : React.FormEvent) => {
     e.preventDefault();
-    console.log("Logging in with:", { email, password });
-    navigate("/map");
+    setError("");
+
+    try {
+      // Send login credentials to the backend API
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: username, password }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Login failed");
+      }
+
+      // Parse the response
+      const data = await response.json();
+
+      // Store the API key (or token) in localStorage
+      localStorage.setItem("apiKey", data.apiKey);
+
+      // Redirect to the map page
+      navigate("/map");
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unknown error occurred during login");
+      }
+    }
   };
 
   return (
@@ -98,8 +134,8 @@ const Login = () => {
             <Label>Email</Label>
             <Input
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
             />
           </InputGroup>
@@ -112,6 +148,7 @@ const Login = () => {
               required
             />
           </InputGroup>
+          {error && <ErrorMessage>{error}</ErrorMessage>}
           <Button type="submit">Login</Button>
         </Form>
       </FormContainer>
