@@ -7,6 +7,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from .serializers import RegisterSerializer, UserSerializer, LoginSerializer
 from .models import UserProfile
+from django.conf import settings
 
 # Create your views here.
 
@@ -56,7 +57,8 @@ class LoginView(APIView):
         
         return Response({
             'user': user_serializer.data,
-            'token': token.key
+            'token': token.key,
+            'api_key':settings.HERE_API_KEY
         })
 
 class LogoutView(APIView):

@@ -96,12 +96,12 @@ const Login = () => {
 
     try {
       // Send login credentials to the backend API
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/login`, {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/users/login/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email: username, password }),
+        body: JSON.stringify({ username: username,password: password }),
       });
 
       if (!response.ok) {
@@ -131,9 +131,9 @@ const Login = () => {
         <Title>BitHub</Title>
         <Form onSubmit={handleSubmit}>
           <InputGroup>
-            <Label>Email</Label>
+            <Label>Username</Label>
             <Input
-              type="email"
+              type="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required

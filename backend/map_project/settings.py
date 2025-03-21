@@ -53,7 +53,6 @@ INSTALLED_APPS = [
     'corsheaders',
     'directions',
     'pharmacy',
-    'django_celery_beat',
     'users',  # Yeni eklenen kullanıcı yönetimi uygulaması
     'geocoding',  # HERE API için geocoding uygulaması
     'django_crontab',  # Cronjob yönetimi için
@@ -165,22 +164,6 @@ OSRM_SERVER_URL = "http://router.project-osrm.org"
 # HERE API ayarları
 HERE_API_KEY = os.environ.get('HERE_API_KEY', '')
 HERE_API_BASE_URL = "https://geocode.search.hereapi.com/v1/geocode"
-
-# Celery ayarları
-CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'Europe/Istanbul'
-
-# Celery Beat ayarları
-CELERY_BEAT_SCHEDULE = {
-    'collect_traffic_data_every_15_minutes': {
-        'task': 'collect_traffic_data_task',
-        'schedule': 15 * 60,  # 15 dakikada bir (saniye cinsinden)
-    },
-}
 
 # REST Framework ayarları
 REST_FRAMEWORK = {
