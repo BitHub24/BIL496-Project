@@ -8,16 +8,25 @@ steps:
         npm run build
     id: Build React app
     entrypoint: bash
+    env:
+      - 'REACT_APP_BACKEND_API_URL=https://bil496-project.onrender.com'  # Add backend API URL as an env variable
+    secretEnv: ['REACT_APP_GOOGLE_MAPS_API_KEY']  # Reference the secret for the Google Maps API key
+
   - name: gcr.io/cloud-builders/docker
     args:
       - build
       - '-t'
       - gcr.io/bold-bastion-454011-k5/frontend-app
-      - ./frontend
+      - './frontend'
+    env:
+      - 'REACT_APP_BACKEND_API_URL=https://bil496-project.onrender.com'  # Pass the backend API URL to Docker build
+    secretEnv: ['REACT_APP_GOOGLE_MAPS_API_KEY']  # Pass the Google Maps API key to Docker build
+
   - name: gcr.io/cloud-builders/docker
     args:
       - push
       - gcr.io/bold-bastion-454011-k5/frontend-app
+
   - name: gcr.io/cloud-builders/gcloud
     args:
       - run
@@ -30,7 +39,17 @@ steps:
       - '--region'
       - us-central1
       - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'REACT_APP_BACKEND_API_URL=https://bil496-project.onrender.com,REACT_APP_GOOGLE_MAPS_API_KEY=$$REACT_APP_GOOGLE_MAPS_API_KEY'  # Set env vars for Cloud Run
+    secretEnv: ['REACT_APP_GOOGLE_MAPS_API_KEY']  # Pass the Google Maps API key to Cloud Run
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/1094631205138/secrets/bil496-maps-api-key/versions/latest
+      env: 'REACT_APP_GOOGLE_MAPS_API_KEY'  # Map the secret to the REACT_APP_GOOGLE_MAPS_API_KEY environment variable
+
 images:
   - gcr.io/bold-bastion-454011-k5/frontend-app
+
 options:
   logging: CLOUD_LOGGING_ONLY
