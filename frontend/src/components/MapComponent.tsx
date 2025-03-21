@@ -202,12 +202,37 @@ const MapComponent: React.FC = () => {
       map.off('contextmenu', handleContextMenu);
     };
   });
+  // Initialize refs with proper types
+  const prevSourceRef = useRef<Marker | null>(null);
+  const prevDestRef = useRef<Marker | null>(null);
 
   useEffect(() => {
     if (source && destination) {
-      getRoute(source, destination);
+      if (!prevSourceRef.current || !prevDestRef.current) {
+        getRoute(source, destination);
+        
+        // Update refs after first run
+        prevSourceRef.current = source;
+        prevDestRef.current = destination;
+      } else {
+        // There's a logic error in your conditions
+        const sourceChanged = source.lat !== prevSourceRef.current.lat || 
+                            source.lng !== prevSourceRef.current.lng;
+                        
+        const destChanged = destination.lat !== prevDestRef.current.lat || 
+                          destination.lng !== prevDestRef.current.lng;
+        
+        // Only get route if either source OR destination has changed
+        if (sourceChanged || destChanged) {
+          getRoute(source, destination);
+          
+          // Update refs after values change
+          prevSourceRef.current = source;
+          prevDestRef.current = destination;
+        }
+      }
     }
-  });
+  },); // Don't forget the dependency array
 
   const getRoute = async (start: Marker, end: Marker) => {
     try {
@@ -215,8 +240,6 @@ const MapComponent: React.FC = () => {
         start,
         end
       });
-      
-      
       if (routeLayer && map) {
         map.removeLayer(routeLayer);
       }

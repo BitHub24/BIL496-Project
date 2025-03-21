@@ -107,9 +107,11 @@ const Login = () => {
       if (!response.ok) {
         throw new Error("Login failed");
       }
-
+      
+      
       // Parse the response
       const data = await response.json();
+      console.log(data);
       localStorage.setItem("googleApiKey", data.google_api_key);
       localStorage.setItem("hereApiKey", data.here_api_key);
 

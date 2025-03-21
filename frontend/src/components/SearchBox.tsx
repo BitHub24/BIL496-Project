@@ -8,11 +8,17 @@ interface SearchResult {
   lon: string;
 }
 
-interface NominatimResponse {
-  display_name: string;
-  lat: string;
-  lon: string;
-  [key: string]: any;
+interface GoogleGeocodingResponse {
+  results: {
+    formatted_address: string;
+    geometry: {
+      location: {
+        lat: number;
+        lng: number;
+      };
+    };
+  }[];
+  status: string;
 }
 
 interface SearchBoxProps {
@@ -55,25 +61,30 @@ const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps>(({ placeholder, onLoc
       setResults([]);
       return;
     }
-
+  
     setIsLoading(true);
     try {
-      const response = await axios.get<NominatimResponse[]>('https://nominatim.openstreetmap.org/search', {
+      // Retrieve the Google API key from local storage
+      const googleApiKey = localStorage.getItem('googleApiKey');
+      if (!googleApiKey) {
+        throw new Error('Google API key not found in local storage');
+      }
+  
+      const response = await axios.get<GoogleGeocodingResponse>('https://maps.googleapis.com/maps/api/geocode/json', {
         params: {
-          q: `${searchQuery}, Ankara, Turkey`,
-          format: 'json',
-          limit: 5,
-          viewbox: '32.5,39.7,33.2,40.1', // Ankara bounds
-          bounded: 1
+          address: `${searchQuery}, Ankara, Turkey`,
+          key: googleApiKey,
+          bounds: '32.5,39.7|33.2,40.1', // Ankara bounds
         }
       });
-      
-      const searchResults: SearchResult[] = response.data.map(item => ({
-        display_name: item.display_name,
-        lat: item.lat,
-        lon: item.lon
+  
+      // Convert lat and lng to strings
+      const searchResults: SearchResult[] = response.data.results.map(item => ({
+        display_name: item.formatted_address,
+        lat: item.geometry.location.lat.toString(), // Convert to string
+        lon: item.geometry.location.lng.toString() // Convert to string
       }));
-      
+  
       setResults(searchResults);
       setShowResults(true);
     } catch (error) {
@@ -83,7 +94,6 @@ const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps>(({ placeholder, onLoc
       setIsLoading(false);
     }
   };
-
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setQuery(value);
