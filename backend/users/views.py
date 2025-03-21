@@ -58,7 +58,8 @@ class LoginView(APIView):
         return Response({
             'user': user_serializer.data,
             'token': token.key,
-            'api_key':settings.HERE_API_KEY
+            'here_api_key':settings.HERE_API_KEY,
+            'google_api_key':settings.GOOGLE_API_KEY
         })
 
 class LogoutView(APIView):

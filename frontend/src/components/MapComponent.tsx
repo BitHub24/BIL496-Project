@@ -110,17 +110,13 @@ const MapComponent: React.FC = () => {
   };*/
 
   const findNearestAddress = async (lat: number, lng: number): Promise<string> => {
-    const API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
     
     try {
-      if (!API_KEY) {
-        throw new Error('Google Maps API key is missing. Set REACT_APP_GOOGLE_MAPS_API_KEY in your .env file.');
-      }
   
       const response = await axios.get<GeocodeResponse>('https://maps.googleapis.com/maps/api/geocode/json', {
         params: {
           latlng: `${lat},${lng}`,
-          key: API_KEY
+          key: localStorage.getItem('googleApiKey')
         }
       });
   

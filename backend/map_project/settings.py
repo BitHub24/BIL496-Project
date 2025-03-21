@@ -164,6 +164,8 @@ OSRM_SERVER_URL = "http://router.project-osrm.org"
 # HERE API ayarları
 HERE_API_KEY = os.environ.get('HERE_API_KEY', '')
 HERE_API_BASE_URL = "https://geocode.search.hereapi.com/v1/geocode"
+#Google Maps API
+GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')
 
 # REST Framework ayarları
 REST_FRAMEWORK = {

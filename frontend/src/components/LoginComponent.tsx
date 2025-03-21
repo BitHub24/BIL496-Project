@@ -110,9 +110,8 @@ const Login = () => {
 
       // Parse the response
       const data = await response.json();
-
-      // Store the API key (or token) in localStorage
-      localStorage.setItem("apiKey", data.apiKey);
+      localStorage.setItem("googleApiKey", data.google_api_key);
+      localStorage.setItem("hereApiKey", data.here_api_key);
 
       // Redirect to the map page
       navigate("/map");
