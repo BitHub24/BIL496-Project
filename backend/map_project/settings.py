@@ -134,7 +134,7 @@ LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'UTC'
 
-USE_I18N = True
+USE_I18N = False
 
 USE_TZ = True
 
@@ -188,3 +188,18 @@ CRONJOBS = [
 
 # Crontab komut öneki (virtual environment'ı aktifleştirmek için)
 CRONTAB_COMMAND_PREFIX = 'source ' + os.path.join(BASE_DIR, 'venv/bin/activate') + ' && '
+
+# E-posta ayarları
+# Geliştirme ortamında konsola yazdırma, üretim ortamında gerçek SMTP
+if DEBUG:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+else:
+    EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+    
+# SMTP e-posta ayarları (sadece DEBUG=False iken kullanılır)
+EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@bithubmaps.com')
