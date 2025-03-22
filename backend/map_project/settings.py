@@ -32,11 +32,10 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-x&1m(=t26tb0m=e#8t!o_%fp*v
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = ["bil496-project.onrender.com", "127.0.0.1", "localhost"]
+ALLOWED_HOSTS = ["bil496-project.onrender.com","backend-496-1094631205138.us-central1.run.app","127.0.0.1", "localhost"]
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
-ALLOWED_HOSTS = ["bil496-project.onrender.com","localhost"]
 
 
 # Application definition
