@@ -1,61 +1,222 @@
-import React, { useState } from 'react';
-import './RegisterComponent.css'; // Stil dosyasını import etme
+import React, { useState } from "react";
+import styled from "styled-components";
 
-// RegisterComponent bileşenini export etme
-const RegisterComponent: React.FC = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
+
+const RegisterContainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(to right, #3b82f6, #8b5cf6);
+`;
+
+const FormContainer = styled.div`
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 400px;
+  margin: 0 10px;
+`;
+
+const Title = styled.h2`
+  font-size: 2rem;
+  font-weight: bold;
+  color: rgb(77, 101, 140);
+  text-align: center;
+  margin-bottom: 1.5rem;
+`;
+
+const InputGroup = styled.div`
+  margin-bottom: 1rem;
+`;
+
+const Label = styled.label`
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+`;
+
+const Input = styled.input`
+  width: 100%;
+  padding: 0.35rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 1rem;
+  margin-top: 0.3rem;
+  outline: none;
+  transition: border-color 0.2s ease-in-out;
+
+  &:focus {
+    border-color: #3b82f6;
+  }
+`;
+
+const Button = styled.button`
+  background-color: #34d399;
+  color: white;
+  padding: 1rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  width: 100%;
+  cursor: pointer;
+
+  &:hover {
+    background-color: #10b981;
+  }
+`;
+
+const AlreadyAccount = styled.p`
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+`;
+
+const ErrorMessage = styled.p`
+  color: #ef4444;
+  font-size: 0.875rem;
+  text-align: center;
+`;
+
+const Register = () => {
+  const [formData, setFormData] = useState({
+    username: "",
+    password: "",
+    email: "",
+    first_name: "",
+    last_name: "", 
+  });
+
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prevData) => ({
+      ...prevData,
+      [name]: value,
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
+    try {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/users/register/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        throw new Error("Registration failed");
+      }
+
+      setSuccess(true);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unknown error occurred");
+      }
     }
-
-    // Backend API'ye istek gönderme (şu an sadece frontend testi)
-    console.log('Registering user:', username);
   };
 
   return (
-    <div className="register-container">
-      <h2>Register</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label>Username</label>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-          />
-        </div>
-        <div>
-          <label>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
-        <div>
-          <label>Confirm Password</label>
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-          />
-        </div>
-        <button type="submit">Register</button>
-      </form>
-    </div>
+    <RegisterContainer>
+      <FormContainer>
+        <Title>Register your account</Title>
+        {success ? (
+          <p>Registration successful! Please <a href="/login">login</a>.</p>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <InputGroup>
+              <Label htmlFor="first_name">First Name</Label>
+              <Input
+                type="text"
+                id="first_name"
+                name="first_name"
+                value={formData.first_name}
+                onChange={handleChange}
+                required
+              />
+            </InputGroup>
+
+            <InputGroup>
+              <Label htmlFor="last_name">Last Name</Label>
+              <Input
+                type="text"
+                id="last_name"
+                name="last_name"
+                value={formData.last_name}
+                onChange={handleChange}
+                required
+              />
+            </InputGroup>
+
+            <InputGroup>
+              <Label htmlFor="username">Username</Label>
+              <Input
+                type="text"
+                id="username"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+                required
+              />
+            </InputGroup>
+
+            <InputGroup>
+              <Label htmlFor="email">Email address</Label>
+              <Input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+              />
+            </InputGroup>
+
+            <InputGroup>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                type="password"
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+              />
+            </InputGroup>
+
+            <InputGroup>
+              <Label htmlFor="confirm_password">Confirm Password</Label>
+              <Input
+                type="password"
+                id="confirm_password"
+                name="confirm_password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+              />
+            </InputGroup>
+
+            {error && <ErrorMessage>{error}</ErrorMessage>}
+            <Button type="submit">Sign up</Button>
+          </form>
+        )}
+        <AlreadyAccount>
+          Already have an account? <a href="/">Sign in</a>.
+        </AlreadyAccount>
+      </FormContainer>
+    </RegisterContainer>
   );
 };
 
-export default RegisterComponent;
+export default Register;
