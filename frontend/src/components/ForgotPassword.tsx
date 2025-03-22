@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import styled from "styled-components";
+import './ForgotPassword.css';  // Burada CSS dosyasını import ettik
 
-const LoginContainer = styled.div`
+const ForgotPasswordContainer = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
@@ -16,7 +17,6 @@ const FormContainer = styled.div`
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   width: 100%;
   max-width: 400px;
-  margin: 0 10px;
 `;
 
 const Title = styled.h2`
@@ -67,58 +67,40 @@ const Button = styled.button`
   }
 `;
 
-const AlreadyAccount = styled.p`
-  text-align: center;
-  margin-top: 1rem;
-  font-size: 0.875rem;
-`;
-
-const ForgotPassword = styled.p`
-  text-align: center;
-  margin-top: 0.5rem;
-  font-size: 0.875rem;
-`;
-
-const Login = () => {
-  const [formData, setFormData] = useState({
-    username: "",
-    password: "",
-  });
+const ForgotPassword = () => {
+  const [username, setUsername] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prevData) => ({
-      ...prevData,
-      [name]: value,
-    }));
+    setUsername(e.target.value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
-      const response = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/users/login/`, {
+      // Make API call to send password reset link (for example)
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/users/reset-password/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ username }),
       });
 
       if (!response.ok) {
-        throw new Error("Login failed");
+        throw new Error("Password reset failed");
       }
 
-      // Handle success (store data, redirect, etc.)
+      alert("Password reset email sent!");
     } catch (err) {
-      // Handle error (show message, etc.)
+      alert("Failed to send password reset email.");
     }
   };
 
   return (
-    <LoginContainer>
+    <ForgotPasswordContainer>
       <FormContainer>
-        <Title>Login</Title>
+        <Title>Forgot Password</Title>
         <form onSubmit={handleSubmit}>
           <InputGroup>
             <Label htmlFor="username">Username</Label>
@@ -126,38 +108,17 @@ const Login = () => {
               type="text"
               id="username"
               name="username"
-              value={formData.username}
+              value={username}
               onChange={handleChange}
               required
             />
           </InputGroup>
 
-          <InputGroup>
-            <Label htmlFor="password">Password</Label>
-            <Input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-            />
-          </InputGroup>
-
-          <Button type="submit">Login</Button>
+          <Button type="submit">Reset Password</Button>
         </form>
-        
-        <AlreadyAccount>
-          Don't have an account? <a href="/register">Create an account</a>.
-        </AlreadyAccount>
-
-        {/* Forgot password link */}
-        <ForgotPassword>
-          <a href="/forgot-password">Forgot Password?</a>
-        </ForgotPassword>
       </FormContainer>
-    </LoginContainer>
+    </ForgotPasswordContainer>
   );
 };
 
-export default Login;
+export default ForgotPassword;

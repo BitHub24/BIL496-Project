@@ -3,7 +3,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import MapComponent from "./components/MapComponent";
 import './App.css';
 import Login from "./components/LoginComponent";
-import RegisterComponent from "./components/RegisterComponent"; // RegisterComponent import et
+import RegisterComponent from "./components/RegisterComponent"; 
+import ForgotPassword from "./components/ForgotPassword";  {/* ForgotPassword import et */}
 
 const App = () => {
   return (
@@ -13,7 +14,8 @@ const App = () => {
           <Routes>
             <Route path="/" element={<Login />} />
             <Route path="/map" element={<MapComponent />} />
-            <Route path="/register" element={<RegisterComponent />} />  {/* Register sayfası */}
+            <Route path="/register" element={<RegisterComponent />} />  
+            <Route path="/forgot-password" element={<ForgotPassword />} /> {/* ForgotPassword sayfası */}
           </Routes>
         </main>
       </div>
