@@ -152,10 +152,10 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = True  # Sadece geliştirme için
+CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "https://bil496-project.onrender.com",
+    "https://frontend-app-1094631205138.us-central1.run.app",
 ]
 
 # Add your OSRM server URL here (we'll use a public instance)
