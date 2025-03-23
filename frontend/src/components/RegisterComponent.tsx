@@ -1,6 +1,12 @@
 import React, { useState } from "react";
-import styled from "styled-components";
+import styled, { keyframes, css } from "styled-components";
 
+const shake = keyframes`
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  50% { transform: translateX(5px); }
+  75% { transform: translateX(-5px); }
+`;
 
 const RegisterContainer = styled.div`
   display: flex;
@@ -38,18 +44,30 @@ const Label = styled.label`
   color: #374151;
 `;
 
-const Input = styled.input`
+const Input = styled.input<{ $error?: boolean; $shake?: boolean }>`
   width: 100%;
   padding: 0.35rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid ${({ $error }) => ($error ? "#ef4444" : "#d1d5db")};
   border-radius: 8px;
   font-size: 1rem;
   margin-top: 0.3rem;
   outline: none;
   transition: border-color 0.2s ease-in-out;
+  
+  ${({ $error }) =>
+    $error &&
+    css`
+      box-shadow: 0 0 5px #ef4444;
+    `}
+
+  ${({ $shake }) =>
+    $shake &&
+    css`
+      animation: ${shake} 0.3s ease-in-out;
+    `}
 
   &:focus {
-    border-color: #3b82f6;
+    border-color: ${({ $error }) => ($error ? "#ef4444" : "#3b82f6")};
   }
 `;
 
@@ -84,12 +102,15 @@ const Register = () => {
   const [formData, setFormData] = useState({
     username: "",
     password: "",
+    confirmPassword: "",
     email: "",
     first_name: "",
-    last_name: "", 
+    last_name: "",
   });
 
   const [error, setError] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
+  const [shake, setShake] = useState(false);
   const [success, setSuccess] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,19 +119,34 @@ const Register = () => {
       ...prevData,
       [name]: value,
     }));
+    
+    // Reset password error when the user starts typing again
+    if (name === "password" || name === "confirmPassword") {
+      setPasswordError(false);
+      setShake(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
+    // Check password match
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match!");
+      setPasswordError(true);
+      setShake(true);
+      return;
+    }
+
     try {
+      const { confirmPassword, ...data } = formData;
       const response = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/users/register/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
@@ -132,7 +168,7 @@ const Register = () => {
       <FormContainer>
         <Title>Register your account</Title>
         {success ? (
-          <p>Registration successful! Please <a href="/login">login</a>.</p>
+          <p>Registration successful! Please <a href="/">login</a>.</p>
         ) : (
           <form onSubmit={handleSubmit}>
             <InputGroup>
@@ -192,6 +228,8 @@ const Register = () => {
                 value={formData.password}
                 onChange={handleChange}
                 required
+                $error={passwordError}
+                $shake={shake}
               />
             </InputGroup>
 
@@ -200,10 +238,12 @@ const Register = () => {
               <Input
                 type="password"
                 id="confirm_password"
-                name="confirm_password"
-                value={formData.password}
+                name="confirmPassword"
+                value={formData.confirmPassword}
                 onChange={handleChange}
                 required
+                $error={passwordError}
+                $shake={shake}
               />
             </InputGroup>
 
