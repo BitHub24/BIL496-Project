@@ -4,7 +4,8 @@ import MapComponent from "./components/MapComponent";
 import './App.css';
 import Login from "./components/LoginComponent";
 import RegisterComponent from "./components/RegisterComponent"; 
-import ForgotPassword from "./components/ForgotPassword";  {/* ForgotPassword import et */}
+import ForgotPassword from "./components/ForgotPassword";  
+import ResetPassword from "./components/ResetPassword";  
 
 const App = () => {
   return (
@@ -15,7 +16,8 @@ const App = () => {
             <Route path="/" element={<Login />} />
             <Route path="/map" element={<MapComponent />} />
             <Route path="/register" element={<RegisterComponent />} />  
-            <Route path="/forgot-password" element={<ForgotPassword />} /> {/* ForgotPassword sayfası */}
+            <Route path="/forgot-password" element={<ForgotPassword />} /> 
+            <Route path="/reset-password" element={<ResetPassword />} /> {/* ResetPassword sayfası */}
           </Routes>
         </main>
       </div>
