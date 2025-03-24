@@ -34,16 +34,6 @@ const destinationIcon = new L.Icon({
   shadowSize: [41, 41]
 });
 
-// WiFi icon için yeni bir ikon tanımlıyoruz
-const wifiIcon = new L.Icon({
-  iconUrl: require('leaflet/dist/images/marker-icon.png'), // Varsayılan ikon (özel WiFi ikonu oluşturulabilir)
-  iconSize: [20, 33], // WiFi ikonunu biraz daha küçük yapıyoruz
-  iconAnchor: [10, 33],
-  popupAnchor: [1, -34],
-  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
-  shadowSize: [41, 41]
-});
-
 // Ankara coordinates and bounds
 const ANKARA_CENTER: L.LatLngTuple = [39.9334, 32.8597];
 const ANKARA_BOUNDS: L.LatLngBoundsLiteral = [
@@ -76,19 +66,6 @@ interface GeocodeResponse {
   results: GeocodeResult[];
 }
 
-// WiFi Noktası veri tipi
-interface WiFiPoint {
-  id?: number;
-  name: string;
-  address: string;
-  category: string;
-  is_active: boolean;
-  latitude: number;
-  longitude: number;
-  created_at?: string;
-  updated_at?: string;
-}
-
 const MapComponent: React.FC = () => {
   const [map, setMap] = useState<L.Map | null>(null);
   const [source, setSource] = useState<Marker | null>(null);
@@ -96,11 +73,6 @@ const MapComponent: React.FC = () => {
   const [routeLayer, setRouteLayer] = useState<L.Layer | null>(null);
   const [sourceMarker, setSourceMarker] = useState<L.Marker | null>(null);
   const [destinationMarker, setDestinationMarker] = useState<L.Marker | null>(null);
-  
-  // WiFi noktaları için yeni state değişkenleri
-  const [wifiPoints, setWifiPoints] = useState<WiFiPoint[]>([]);
-  const [wifiMarkers, setWifiMarkers] = useState<L.Marker[]>([]);
-  const [showWifiPoints, setShowWifiPoints] = useState<boolean>(false);
   
   const sourceSearchRef = useRef<SearchBoxRef>(null);
   const destinationSearchRef = useRef<SearchBoxRef>(null);
@@ -129,62 +101,13 @@ const MapComponent: React.FC = () => {
     };
   }, []);
 
-  // WiFi noktalarını getiren fonksiyon
-  const fetchWifiPoints = async () => {
-    try {
-      const response = await axios.get<WiFiPoint[]>(`${process.env.REACT_APP_BACKEND_API_URL}/api/wifi-points/`);
-      setWifiPoints(response.data);
-    } catch (error) {
-      console.error('WiFi noktaları yüklenirken hata oluştu:', error);
-    }
-  };
-
-  // Harita yüklendiğinde WiFi noktalarını getir
-  useEffect(() => {
-    if (map) {
-      fetchWifiPoints();
-    }
-  }, [map]);
-
-  // WiFi noktalarını göster/gizle fonksiyonu
-  const toggleWifiPoints = () => {
+  /*const clearMarkers = () => {
     if (!map) return;
-    
-    const newState = !showWifiPoints;
-    setShowWifiPoints(newState);
-    
-    // Mevcut WiFi noktası işaretçilerini temizle
-    wifiMarkers.forEach(marker => {
-      map.removeLayer(marker);
-    });
-    setWifiMarkers([]);
-    
-    // Eğer gösterilecekse WiFi noktalarını ekle
-    if (newState && wifiPoints.length > 0) {
-      const newMarkers: L.Marker[] = [];
-      
-      wifiPoints.forEach(point => {
-        if (point.latitude && point.longitude) {
-          const marker = L.marker([point.latitude, point.longitude], {
-            icon: wifiIcon
-          }).addTo(map);
-          
-          marker.bindPopup(`
-            <div class="wifi-popup">
-              <h3>${point.name || 'İsimsiz WiFi Noktası'}</h3>
-              <p><strong>Adres:</strong> ${point.address || 'Adres bilgisi yok'}</p>
-              <p><strong>Kategori:</strong> ${point.category || 'WiFi Noktası'}</p>
-              <p><strong>Durum:</strong> ${point.is_active ? 'Aktif' : 'Pasif'}</p>
-            </div>
-          `);
-          
-          newMarkers.push(marker);
-        }
-      });
-      
-      setWifiMarkers(newMarkers);
-    }
-  };
+    if (sourceMarker) map.removeLayer(sourceMarker);
+    if (destinationMarker) map.removeLayer(destinationMarker);
+    setSourceMarker(null);
+    setDestinationMarker(null);
+  };*/
 
   const findNearestAddress = async (lat: number, lng: number): Promise<string> => {
     
@@ -326,16 +249,6 @@ const MapComponent: React.FC = () => {
           placeholder="Enter destination"
           onLocationSelect={(lat, lng) => addMarker(lat, lng, false)}
         />
-        
-        {/* WiFi noktaları için buton */}
-        <div className="wifi-toggle-container">
-          <button 
-            className={`wifi-toggle-btn ${showWifiPoints ? 'active' : ''}`}
-            onClick={toggleWifiPoints}
-          >
-            {showWifiPoints ? 'WiFi Noktalarını Gizle' : 'WiFi Noktalarını Göster'}
-          </button>
-        </div>
       </div>
       <div id="map" style={{ height: '500px', width: '100%' }} />
     </div>
