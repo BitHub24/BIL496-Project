@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";  // Link import edilmesi gerekiyor
 import styled from "styled-components";
 
 // Styled components
@@ -90,7 +90,7 @@ const Login = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handleSubmit = async (e : React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -101,14 +101,13 @@ const Login = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ username: username,password: password }),
+        body: JSON.stringify({ username: username, password: password }),
       });
 
       if (!response.ok) {
         throw new Error("Login failed");
       }
-      
-      
+
       // Parse the response
       const data = await response.json();
       console.log(data);
@@ -152,6 +151,8 @@ const Login = () => {
           {error && <ErrorMessage>{error}</ErrorMessage>}
           <Button type="submit">Login</Button>
         </Form>
+        {/* Link to the Register Page */}
+        <p>Don't have an account? <Link to="/register">Create an account</Link></p>
       </FormContainer>
     </LoginContainer>
   );

@@ -24,12 +24,20 @@ Unidecode==1.3.8
 requests==2.32.3
 django-celery-beat==2.7.0
 
+# E-posta ve şifre sıfırlama araçları
+django-templated-mail==1.1.1
+pyjwt==2.9.0
+
 # Ortam değişkenleri ve yardımcı kütüphaneler
 python-dotenv==1.0.1
 urllib3==2.3.0
 numpy==2.2.4
 python-dateutil==2.9.0.post0
 pytz==2025.1
+uuid==1.30
+
+# Güvenlik
+django-password-validators==1.7.3
 
 # Ek bağımlılıklar
 asgiref==3.8.1
@@ -38,3 +46,6 @@ charset-normalizer==3.4.1
 idna==3.10
 sqlparse==0.5.3
 tzdata==2025.1
+
+# Debug ve Test
+django-debug-toolbar==4.3.0

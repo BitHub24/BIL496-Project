@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from .models import UserProfile
+import uuid
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -70,6 +71,51 @@ class RegisterSerializer(serializers.ModelSerializer):
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(required=True)
     password = serializers.CharField(required=True, write_only=True)
+    
+    def validate(self, attrs):
+        return attrs
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    username = serializers.CharField(required=True)
+    
+    def validate_username(self, value):
+        if not User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Bu kullanıcı adına sahip bir kullanıcı bulunamadı.")
+        return value
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    token = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True, write_only=True, validators=[validate_password])
+    
+    def validate_token(self, value):
+        # Token formatını doğrula
+        try:
+            uuid_obj = uuid.UUID(value)
+            if str(uuid_obj) != value:
+                raise serializers.ValidationError("Geçersiz token formatı.")
+        except ValueError:
+            raise serializers.ValidationError("Geçersiz token formatı.")
+        return value
+    
+    def validate_new_password(self, value):
+        # Şifre uzunluğu kontrolü
+        if len(value) < 8:
+            raise serializers.ValidationError("Şifre en az 8 karakter uzunluğunda olmalıdır.")
+        
+        # Şifre karmaşıklık kontrolü
+        if not any(char.isdigit() for char in value):
+            raise serializers.ValidationError("Şifre en az bir sayı içermelidir.")
+            
+        if not any(char.isupper() for char in value):
+            raise serializers.ValidationError("Şifre en az bir büyük harf içermelidir.")
+            
+        if not any(char.islower() for char in value):
+            raise serializers.ValidationError("Şifre en az bir küçük harf içermelidir.")
+        
+        if not any(char in "!@#$%^&*()_+-=[]{}|;:,.<>?/" for char in value):
+            raise serializers.ValidationError("Şifre en az bir özel karakter içermelidir.")
+        
+        return value
     
     def validate(self, attrs):
         return attrs 
