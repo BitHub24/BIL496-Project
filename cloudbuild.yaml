@@ -7,7 +7,8 @@ steps:
         npm install
         npm run build
     id: Build React app
-    env: 'NODE_OPTIONS=--openssl-legacy-provider'
+    env:
+      - 'NODE_OPTIONS=--openssl-legacy-provider'
     entrypoint: bash
     
   - name: gcr.io/cloud-builders/docker
