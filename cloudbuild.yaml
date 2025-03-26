@@ -3,6 +3,7 @@ steps:
     args:
       - '-c'
       - |
+        cd frontend
         npm install
         npm run build
     id: Build React app
@@ -15,6 +16,7 @@ steps:
       - build
       - '-t'
       - gcr.io/bold-bastion-454011-k5/frontend-app
+      - ./frontend
 
   - name: gcr.io/cloud-builders/docker
     args:
