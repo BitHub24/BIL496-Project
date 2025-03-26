@@ -6,6 +6,7 @@ RUN npm install
 COPY . .
 RUN npm run build
 FROM node:18-slim
+ENV NODE_OPTIONS=--openssl-legacy-provider
 WORKDIR /app
 COPY --from=build /app/build ./build
 RUN npm install -g serve
