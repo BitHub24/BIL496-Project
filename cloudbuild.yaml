@@ -1,43 +1,26 @@
 steps:
-  - name: 'node:18'
+  - name: 'gcr.io/cloud-builders/docker'
     args:
-      - '-c'
-      - |
-        cd frontend
-        npm install
-        npm run build
-    id: Build React app
-    env:
-      - 'NODE_OPTIONS=--openssl-legacy-provider'
-    entrypoint: bash
-    
-  - name: gcr.io/cloud-builders/docker
-    args:
-      - build
+      - 'build'
       - '-t'
-      - gcr.io/bold-bastion-454011-k5/frontend-app
-      - ./frontend
+      - 'gcr.io/bold-bastion-454011-k5/frontend-app'
+      - './frontend'
+    id: docker-build
+  # ... rest unchanged
 
-  - name: gcr.io/cloud-builders/docker
-    args:
-      - push
-      - gcr.io/bold-bastion-454011-k5/frontend-app
+  # 3. Push and deploy (unchanged)
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/bold-bastion-454011-k5/frontend-app']
 
-  - name: gcr.io/cloud-builders/gcloud
+  - name: 'gcr.io/cloud-builders/gcloud'
     args:
-      - run
-      - deploy
-      - frontend-app
-      - '--image'
-      - gcr.io/bold-bastion-454011-k5/frontend-app
-      - '--platform'
-      - managed
-      - '--region'
-      - us-central1
+      - 'run'
+      - 'deploy'
+      - 'frontend-app'
+      - '--image=gcr.io/bold-bastion-454011-k5/frontend-app'
+      - '--platform=managed'
+      - '--region=us-central1'
       - '--allow-unauthenticated'
 
 images:
-  - gcr.io/bold-bastion-454011-k5/frontend-app
-
-options:
-  logging: CLOUD_LOGGING_ONLY
+  - 'gcr.io/bold-bastion-454011-k5/frontend-app'
