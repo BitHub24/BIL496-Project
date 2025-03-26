@@ -79,7 +79,7 @@
 }
 
 .poi-button:hover {
-  background-color: #45a049;
+  background-color: rgb(230,30,30);
 }
 #map {
   flex: 1;
