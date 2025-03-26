@@ -1,6 +1,7 @@
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import MapComponent from "./components/MapComponent";
+import { Toaster } from 'sonner';
 import './App.css';
 import Login from "./components/LoginComponent";
 import RegisterComponent from "./components/RegisterComponent"; // RegisterComponent import et
@@ -16,8 +17,11 @@ const App = () => {
             <Route path="/register" element={<RegisterComponent />} />  {/* Register sayfası */}
           </Routes>
         </main>
+        <Toaster position="top-center" richColors />
       </div>
+      
     </BrowserRouter>
+    
   );
 };
 
