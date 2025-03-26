@@ -112,8 +112,10 @@ export interface GoogleGeocodingResponse {
   status: string;
 }
 export interface SearchBoxProps {
+  ref: React.Ref<SearchBoxRef>;
   placeholder: string;
   onLocationSelect: (lat: number, lng: number) => void;
+  children?: React.ReactNode;
 }
 export interface SearchBoxRef {
   setQuery: (query: string) => void;

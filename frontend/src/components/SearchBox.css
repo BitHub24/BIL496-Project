@@ -9,18 +9,50 @@
 .search-box:last-child {
   margin-bottom: 0;
 }
+/* SearchBox.css */
+.search-box-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-box-container input {
+  flex: 1;
+  padding-right: 40px; /* Make space for the button */
+}
 
 .search-input {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
+  width: 80%;
+  padding: 10px 40px 10px 15px; /* Right padding for the button */
+  border: 1px solid #ddd;
+  border-radius: 4px;
   font-size: 14px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
-  background: white;
-  box-sizing: border-box;
 }
+
+.location-button {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  color: #5f6368;
+  transition: color 0.3s;
+}
+
+.location-button:hover {
+  color: #4285F4;
+  background-color: white;
+}
+
+.location-button svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
 
 .search-input:focus {
   outline: none;

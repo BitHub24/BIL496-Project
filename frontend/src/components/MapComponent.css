@@ -29,6 +29,33 @@
   gap: 10px;
   margin-top: 10px;
 }
+.search-box-with-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.location-button {
+  background: #4285F4;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+  transition: background-color 0.3s;
+}
+
+.location-button:hover {
+  background: #3367D6;
+}
+
+.location-button svg {
+  fill: currentColor;
+}
 
 .poi-button {
   padding: 8px 12px;

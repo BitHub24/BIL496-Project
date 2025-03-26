@@ -7,7 +7,7 @@ import { SearchBoxProps,SearchBoxRef, SearchResult, GoogleGeocodingResponse } fr
 
 
 
-const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps>(({ placeholder, onLocationSelect }, ref) => {
+const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps>(({ placeholder, onLocationSelect, children }, ref) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -96,6 +96,7 @@ const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps>(({ placeholder, onLoc
         placeholder={placeholder}
         className="search-input"
       />
+      {children}
       {isLoading && <div className="loading-indicator">Searching...</div>}
       {showResults && results.length > 0 && (
         <ul className="search-results">
