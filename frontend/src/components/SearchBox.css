@@ -31,7 +31,7 @@
 
 .location-button {
   position: absolute;
-  right: 15px;
+  right: 8%;
   top: 50%;
   transform: translateY(-50%);
   background: none;
