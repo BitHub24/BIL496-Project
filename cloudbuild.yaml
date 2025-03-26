@@ -24,3 +24,6 @@ steps:
 
 images:
   - 'gcr.io/bold-bastion-454011-k5/frontend-app'
+  
+options:
+  logging: CLOUD_LOGGING_ONLY
