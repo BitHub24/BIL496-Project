@@ -4,8 +4,10 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import axios from 'axios';
 import './MapComponent.css';
-import '../models/Models'
-import SearchBox, { SearchBoxRef } from './SearchBox';
+import {
+  Coordinate,Pharmacy,PointOfInterest,RouteResponse,GeocodeResponse,SearchBoxRef
+} from '../models/Models';
+import SearchBox from './SearchBox';
 import sourceMarkerIcon from '../assets/source-marker.svg';
 import destinationMarkerIcon from '../assets/destination-marker.svg';
 import pharmacyIconUrl from '../assets/eczane.svg'
@@ -187,14 +189,14 @@ const MapComponent: React.FC = () => {
     }
   };
 
-  const [isSourceError, setIsSourceError] = useState(false);
+  const [isToastError, setIsToastError] = useState(false);
 
   const fetchPharmacies = async () => {
     try {
       if (!source) {
-        setIsSourceError(true); // Trigger error UI
+        setIsToastError(true); // Trigger error UI
         toast.error('Please select a location first');
-        setTimeout(() => setIsSourceError(false), 1000);
+        setTimeout(() => setIsToastError(false), 1000);
         return;
     }
       const response = await axios.get<Pharmacy[]>(
@@ -311,7 +313,7 @@ const MapComponent: React.FC = () => {
   const prevRouteLayerRef = useRef<L.GeoJSON | null>(null); // Track previous route layer
 const prevSourceRef = useRef<Coordinate | null>(null);
 const prevDestRef = useRef<Coordinate | null>(null);
-
+/*
 useEffect(() => {
   if (!source || !destination || !map) return;
 
@@ -335,9 +337,34 @@ useEffect(() => {
     prevDestRef.current = destination;
   }
 }, [source, destination, map]);
+*/
+useEffect(() => {
+  if (!source || !destination || !map) return;
 
+  
+    // Clear previous route before fetching new one
+    if (prevRouteLayerRef.current) {
+      map.removeLayer(prevRouteLayerRef.current);
+      prevRouteLayerRef.current = null;
+    }
+    prevSourceRef.current = source;
+    prevDestRef.current = destination;
+  
+}, [source, destination, map]);
 const getRoute = async (start: Coordinate, end: Coordinate) => {
   try {
+    if(!source){
+      setIsToastError(true); // Trigger error UI
+      toast.error('Please select a source first');
+      setTimeout(() => setIsToastError(false), 1000);
+      return;
+    }
+    if(!destination){
+      setIsToastError(true); // Trigger error UI
+      toast.error('Please select a destination first');
+      setTimeout(() => setIsToastError(false), 1000);
+      return;
+    }
     const response = await axios.post<RouteResponse>(
       `${process.env.REACT_APP_BACKEND_API_URL}/api/directions/route/`,
       { start, end }
@@ -382,6 +409,14 @@ const getRoute = async (start: Coordinate, end: Coordinate) => {
           placeholder="Enter destination"
           onLocationSelect={(lat, lng) => addMarker(lat, lng, false)}
         />
+        <div className="point-of-interest-buttons">
+          <button 
+            onClick={() => getRoute(source!, destination!)} 
+            className="route-button"
+          >
+            Get Directions
+          </button>
+        </div>
         <div className="point-of-interest-buttons">
           <button onClick={fetchPharmacies} className="poi-button">
             Show Duty Pharmacies

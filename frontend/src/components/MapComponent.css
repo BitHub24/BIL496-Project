@@ -20,7 +20,7 @@
   transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 5px;
   margin-bottom: 15px;
 }
 
@@ -33,6 +33,16 @@
 .poi-button {
   padding: 8px 12px;
   background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  flex: 1;
+  transition: background-color 0.3s;
+}
+.route-button {
+  padding: 8px 12px;
+  background-color: #111AAB;
   color: white;
   border: none;
   border-radius: 4px;

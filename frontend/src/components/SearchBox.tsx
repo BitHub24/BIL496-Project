@@ -1,34 +1,11 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import axios from 'axios';
 import './SearchBox.css';
+import { SearchBoxProps,SearchBoxRef, SearchResult, GoogleGeocodingResponse } from '../models/Models';
 
-interface SearchResult {
-  display_name: string;
-  lat: string;
-  lon: string;
-}
 
-interface GoogleGeocodingResponse {
-  results: {
-    formatted_address: string;
-    geometry: {
-      location: {
-        lat: number;
-        lng: number;
-      };
-    };
-  }[];
-  status: string;
-}
 
-interface SearchBoxProps {
-  placeholder: string;
-  onLocationSelect: (lat: number, lng: number) => void;
-}
 
-export interface SearchBoxRef {
-  setQuery: (query: string) => void;
-}
 
 const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps>(({ placeholder, onLocationSelect }, ref) => {
   const [query, setQuery] = useState('');

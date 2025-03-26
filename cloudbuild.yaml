@@ -5,11 +5,11 @@ steps:
       - |
         cd frontend
         npm install
-        export NODE_OPTIONS=--openssl-legacy-provider
         npm run build
     id: Build React app
+    env: 'NODE_OPTIONS=--openssl-legacy-provider'
     entrypoint: bash
-
+    
   - name: gcr.io/cloud-builders/docker
     args:
       - build
