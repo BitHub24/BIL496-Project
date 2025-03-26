@@ -57,6 +57,8 @@ INSTALLED_APPS = [
     'geocoding',  # HERE API için geocoding uygulaması
     'django_crontab',  # Cronjob yönetimi için
     'traffic_data',  # Trafik verilerini toplama modülü
+    'wifi_points',  # WiFi noktaları uygulaması
+    'bicycle_points',  # Bisiklet istasyonları uygulaması
 ]
 
 MIDDLEWARE = [
