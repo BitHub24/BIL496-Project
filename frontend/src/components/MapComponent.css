@@ -59,7 +59,7 @@
 
 .poi-button {
   padding: 8px 12px;
-  background-color: rgb(230,30,30);
+  background-color: #e60000;
   color: white;
   border: none;
   border-radius: 4px;
@@ -69,7 +69,7 @@
 }
 .route-button {
   padding: 8px 12px;
-  background-color: #11158c;
+  background-color: #4285F4;
   color: white;
   border: none;
   border-radius: 4px;
@@ -77,9 +77,12 @@
   flex: 1;
   transition: background-color 0.3s;
 }
+.route-button:hover{
+  background-color:#3367D6;
+}
 
 .poi-button:hover {
-  background-color: #45a049;
+  background-color: #b30000;
 }
 #map {
   flex: 1;
