@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -12,6 +12,9 @@ import uuid
 from django.core.mail import send_mail
 from django.utils import timezone
 from datetime import timedelta
+from social_django.models import UserSocialAuth
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 
 # Create your views here.
 
@@ -41,7 +44,10 @@ class LoginView(APIView):
     
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            return Response({
+                'error': 'Lütfen geçerli bir kullanıcı adı ve şifre giriniz.'
+            }, status=status.HTTP_400_BAD_REQUEST)
         
         user = authenticate(
             username=serializer.validated_data['username'],
@@ -50,7 +56,7 @@ class LoginView(APIView):
         
         if not user:
             return Response({
-                'error': 'Geçersiz kullanıcı adı veya parola'
+                'error': 'Geçersiz kullanıcı adı veya parola. Lütfen bilgilerinizi kontrol ediniz.'
             }, status=status.HTTP_401_UNAUTHORIZED)
         
         # Token oluşturma veya var olanı getirme
@@ -368,3 +374,35 @@ class PasswordResetVerifyTokenView(APIView):
                     "error": "İşlem sırasında bir hata oluştu.",
                     "valid": False
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class SocialAuthCompleteView(APIView):
+    permission_classes = [permissions.AllowAny]
+    
+    @csrf_exempt
+    def get(self, request):
+        # Kullanıcı oturum açmış mı kontrol et
+        if not request.user.is_authenticated:
+            return redirect(settings.SOCIAL_AUTH_LOGIN_ERROR_URL)
+        
+        # Token oluştur veya var olanı getir
+        token, created = Token.objects.get_or_create(user=request.user)
+        
+        # Frontend URL'i oluştur
+        frontend_url = 'http://localhost:3000'
+        if not settings.DEBUG:
+            frontend_url = 'https://frontend-app-1094631205138.us-central1.run.app'
+        
+        # Token ve API anahtarlarını URL parametreleri olarak ekle
+        redirect_url = f"{frontend_url}/map?token={token.key}&here_api_key={settings.HERE_API_KEY}&google_api_key={settings.GOOGLE_API_KEY}"
+        
+        # Kullanıcı detayları
+        user_email = request.user.email
+        is_new_user = getattr(request.user, 'is_new', created)  # is_new değeri yoksa, token created değerini kullan
+        
+        # Ek parametreler ekle
+        redirect_url += f"&is_new_user={str(is_new_user).lower()}"
+        redirect_url += f"&user_email={user_email}" if user_email else ""
+        
+        print(f"OAuth yönlendirme URL'i: {redirect_url}")
+        
+        return redirect(redirect_url)

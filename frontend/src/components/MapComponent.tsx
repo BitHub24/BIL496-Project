@@ -13,6 +13,7 @@ import destinationMarkerIcon from '../assets/destination-marker.svg';
 import pharmacyIconUrl from '../assets/eczane.svg'
 import bicycleIconUrl from '../assets/bicycle.png'
 import wifiIconUrl from '../assets/wifi.png'
+import styled from "styled-components";
 // Fix Leaflet default icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -69,6 +70,24 @@ const ANKARA_BOUNDS: L.LatLngBoundsLiteral = [
   [40.1, 33.2]  // Northeast coordinates
 ];
 
+const LogoutButton = styled.button`
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: #5e35b1;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  
+  &:hover {
+    background-color: #4a278b;
+  }
+`;
 
 const MapComponent: React.FC = () => {
   const [map, setMap] = useState<L.Map | null>(null);
@@ -441,48 +460,91 @@ const MapComponent: React.FC = () => {
     }
   };
 
-  return (
-    <div className="map-container">
-      <div className="search-container">
-        <div className="search-box-with-button">
-          <SearchBox
-            ref={sourceSearchRef}
-            placeholder="Enter start location"
-            onLocationSelect={(lat, lng) => addMarker(lat, lng, true)}
-          >
-            <button
-              onClick={askForLocation}
-              className="location-button"
-              title="Use my current location"
-              type="button"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
-                <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z" />
-              </svg>
-            </button>
-          </SearchBox>
-        </div>
-        <SearchBox
-          ref={destinationSearchRef}
-          placeholder="Enter destination"
-          onLocationSelect={(lat, lng) => addMarker(lat, lng, false)}
-        />
-                <div className="point-of-interest-buttons">
-          <button 
-            onClick={() => getRoute(source!, destination!)} 
-            className="route-button"
-          >
-            Get Directions
-          </button>
-        </div>
-        <div className="point-of-interest-buttons">
-          <button onClick={fetchPharmacies} className="poi-button">
-            Show Duty Pharmacies
-          </button>
-        </div>
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      
+      if (!token) {
+        console.log("No token found, redirecting to login");
+        window.location.href = "/";
+        return;
+      }
+      
+      // Backend'e logout isteği gönder
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/users/logout/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Token ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        console.error(`Logout failed with status: ${response.status}`);
+      }
+      
+      // LocalStorage'dan token ve API anahtarlarını temizle
+      localStorage.removeItem("token");
+      localStorage.removeItem("hereApiKey");
+      localStorage.removeItem("googleApiKey");
+      
+      // Login sayfasına yönlendir
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Hata olsa bile kullanıcı bilgilerini temizle ve login'e yönlendir
+      localStorage.removeItem("token");
+      localStorage.removeItem("hereApiKey");
+      localStorage.removeItem("googleApiKey");
+      window.location.href = "/";
+    }
+  };
 
+  return (
+    <div style={{ height: '100vh', width: '100%', position: 'relative' }}>
+      <LogoutButton onClick={handleLogout}>Çıkış Yap</LogoutButton>
+      <div className="map-container">
+        <div className="search-container">
+          <div className="search-box-with-button">
+            <SearchBox
+              ref={sourceSearchRef}
+              placeholder="Enter start location"
+              onLocationSelect={(lat, lng) => addMarker(lat, lng, true)}
+            >
+              <button
+                onClick={askForLocation}
+                className="location-button"
+                title="Use my current location"
+                type="button"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                  <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z" />
+                </svg>
+              </button>
+            </SearchBox>
+          </div>
+          <SearchBox
+            ref={destinationSearchRef}
+            placeholder="Enter destination"
+            onLocationSelect={(lat, lng) => addMarker(lat, lng, false)}
+          />
+          <div className="point-of-interest-buttons">
+            <button 
+              onClick={() => getRoute(source!, destination!)} 
+              className="route-button"
+            >
+              Get Directions
+            </button>
+          </div>
+          <div className="point-of-interest-buttons">
+            <button onClick={fetchPharmacies} className="poi-button">
+              Show Duty Pharmacies
+            </button>
+          </div>
+
+        </div>
+        <div id="map" style={{ height: '100%', width: '100%' }} />
       </div>
-      <div id="map" style={{ height: '500px', width: '100%' }} />
     </div>
   );
 };

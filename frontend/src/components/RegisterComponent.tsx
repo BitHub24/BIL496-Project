@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import styled, { keyframes, css } from "styled-components";
+import { useNavigate } from "react-router-dom";
 
 const shake = keyframes`
   0%, 100% { transform: translateX(0); }
@@ -13,23 +14,43 @@ const RegisterContainer = styled.div`
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: linear-gradient(to right, #3b82f6, #8b5cf6);
+  background-image: url('/loginBg.png');
+  background-size: cover;
+  background-position: center;
+  
+  @media (max-width: 768px) {
+    background-image: url('/loginMobileBg.png');
+  }
 `;
 
 const FormContainer = styled.div`
-  background: white;
+  background: rgba(255, 255, 255, 0.9);
   padding: 2rem;
   border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
   width: 100%;
   max-width: 400px;
   margin: 0 10px;
+  backdrop-filter: blur(5px);
+`;
+
+const LogoContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+  width: 100%;
+`;
+
+const Logo = styled.img`
+  width: 100%;
+  max-width: 320px;
+  height: auto;
 `;
 
 const Title = styled.h2`
   font-size: 2rem;
   font-weight: bold;
-  color: rgb(77, 101, 140);
+  color: #5e35b1;
   text-align: center;
   margin-bottom: 1.5rem;
 `;
@@ -72,7 +93,7 @@ const Input = styled.input<{ $error?: boolean; $shake?: boolean }>`
 `;
 
 const Button = styled.button`
-  background-color: #34d399;
+  background-color: #22c55e;
   color: white;
   padding: 1rem;
   border: none;
@@ -82,7 +103,7 @@ const Button = styled.button`
   cursor: pointer;
 
   &:hover {
-    background-color: #10b981;
+    background-color: #15803d;
   }
 `;
 
@@ -112,6 +133,15 @@ const Register = () => {
   const [passwordError, setPasswordError] = useState(false);
   const [shake, setShake] = useState(false);
   const [success, setSuccess] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Kullanıcı zaten giriş yapmışsa map'e yönlendir
+    const token = localStorage.getItem("token");
+    if (token) {
+      navigate("/map");
+    }
+  }, [navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -166,7 +196,9 @@ const Register = () => {
   return (
     <RegisterContainer>
       <FormContainer>
-        <Title>Register your account</Title>
+        <LogoContainer>
+          <Logo src="/landingLogo.png" alt="BitHub Logo" />
+        </LogoContainer>
         {success ? (
           <p>Registration successful! Please <a href="/">login</a>.</p>
         ) : (

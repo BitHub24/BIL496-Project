@@ -59,18 +59,20 @@ INSTALLED_APPS = [
     'traffic_data',  # Trafik verilerini toplama modülü
     'wifi_points',  # WiFi noktaları uygulaması
     'bicycle_points',  # Bisiklet istasyonları uygulaması
+    'social_django',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # CORS middleware en üstte olmalı
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Statik dosyalar için
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'social_django.middleware.SocialAuthExceptionMiddleware',
 ]
 
 ROOT_URLCONF = 'map_project.urls'
@@ -86,6 +88,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'social_django.context_processors.backends',
+                'social_django.context_processors.login_redirect',
             ],
         },
     },
@@ -136,7 +140,7 @@ LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'UTC'
 
-USE_I18N = False
+USE_I18N = True
 
 USE_TZ = True
 
@@ -167,16 +171,15 @@ OSRM_SERVER_URL = "http://router.project-osrm.org"
 HERE_API_KEY = os.environ.get('HERE_API_KEY', '')
 HERE_API_BASE_URL = "https://geocode.search.hereapi.com/v1/geocode"
 #Google Maps API
-GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 
 # REST Framework ayarları
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+        'rest_framework.permissions.IsAuthenticated',
     ],
 }
 
@@ -205,3 +208,110 @@ EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@bithubmaps.com')
+
+# Session ayarları
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_COOKIE_SECURE = False  # Geliştirme ortamında False, production'da True olmalı
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = None  # OAuth yönlendirmeleri için None kullan
+SESSION_COOKIE_AGE = 86400  # 1 gün (saniye cinsinden)
+SESSION_SAVE_EVERY_REQUEST = True  # Her istekte session verilerini kaydet
+
+# CSRF ayarları
+CSRF_COOKIE_SECURE = False  # Geliştirme ortamında False, production'da True olmalı
+CSRF_COOKIE_HTTPONLY = False
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:3000', 
+    'http://127.0.0.1:3000',
+    'https://frontend-app-1094631205138.us-central1.run.app'
+]
+CSRF_COOKIE_SAMESITE = None  # OAuth yönlendirmeleri için None kullan
+
+# Authentication backends
+AUTHENTICATION_BACKENDS = (
+    'social_core.backends.google.GoogleOAuth2',
+    'django.contrib.auth.backends.ModelBackend',
+)
+
+# Social Auth ayarları
+SOCIAL_AUTH_URL_NAMESPACE = 'social'
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/api/users/social-auth/complete/'
+SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/api/users/social-auth/complete/'
+SOCIAL_AUTH_LOGIN_ERROR_URL = 'http://localhost:3000/login'
+SOCIAL_AUTH_REDIRECT_IS_HTTPS = False  # Development için False, production için True
+
+# Google OAuth2 için state timeout ayarı
+SOCIAL_AUTH_STATE_TIMEOUT = 10000  # 10000 saniye (~ 2.8 saat)
+
+# Production ortamında farklı URL kullanmak için
+if not DEBUG:
+    SOCIAL_AUTH_LOGIN_ERROR_URL = 'https://frontend-app-1094631205138.us-central1.run.app/login'
+    SOCIAL_AUTH_REDIRECT_IS_HTTPS = True
+    CSRF_TRUSTED_ORIGINS = ['https://frontend-app-1094631205138.us-central1.run.app']
+
+# Google OAuth2 settings
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.getenv('GOOGLE_OAUTH2_CLIENT_ID')
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.getenv('GOOGLE_OAUTH2_CLIENT_SECRET')
+SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile',
+]
+
+# Google OAuth2 ek ayarları
+SOCIAL_AUTH_GOOGLE_OAUTH2_AUTH_EXTRA_ARGUMENTS = {
+    'prompt': 'select_account',
+    'access_type': 'offline',
+}
+
+# Google OAuth token handling
+SOCIAL_AUTH_GOOGLE_OAUTH2_AUTH_PARAMS = {
+    'access_type': 'offline',
+}
+
+# Varsayılan OAUTH davranışını ayarla
+SOCIAL_AUTH_LOGIN_ERROR_URL = 'http://localhost:3000/login'
+SOCIAL_AUTH_RAISE_EXCEPTIONS = True
+SOCIAL_AUTH_SANITIZE_REDIRECTS = False
+
+# CSRF豁免列表 - Bu URLler için CSRF koruması kullanılmaz
+CSRF_EXEMPT_URLS = [
+    r'^/api/users/social-auth/.*$',  # OAuth ile ilgili tüm URLler
+]
+
+# Social Auth kullanıcı alanları
+SOCIAL_AUTH_USER_FIELDS = ['username', 'email', 'first_name', 'last_name']
+
+# Kullanıcı giriş yaptıktan sonra özel view'a yönlendirme
+SOCIAL_AUTH_NEW_ASSOCIATION_REDIRECT_URL = '/api/users/social-auth/complete/'
+SOCIAL_AUTH_DISCONNECT_REDIRECT_URL = '/api/users/social-auth/complete/'
+
+# Social Auth pipelines - Kullanıcı adı, profil ve token işleme
+SOCIAL_AUTH_PIPELINE = (
+    # Sosyal profil bilgilerini al
+    'social_core.pipeline.social_auth.social_details',
+    'social_core.pipeline.social_auth.social_uid',
+    'social_core.pipeline.social_auth.auth_allowed',
+    
+    # Önce e-posta ile eşleştirmeyi dene
+    'users.pipeline.associate_by_email',  # İlk olarak e-posta ile eşleştir
+    
+    # Eşleşme yoksa, yeni kullanıcı için işlemler
+    'social_core.pipeline.social_auth.social_user',
+    'social_core.pipeline.user.get_username',
+    'users.pipeline.create_unique_username',
+    'social_core.pipeline.user.create_user',
+    'social_core.pipeline.social_auth.associate_user',
+    'social_core.pipeline.social_auth.load_extra_data',
+    'social_core.pipeline.user.user_details',
+    
+    # Kullanıcı profili ve yönlendirme
+    'users.pipeline.create_user_profile',
+    
+    # Özel complete view'a yönlendirme (token oluşturma için)
+    'users.pipeline.redirect_to_custom_complete',
+)
+
+# Social Auth için temel frontend URL'leri
+FRONTEND_URL = 'http://localhost:3000'
+if not DEBUG:
+    FRONTEND_URL = 'https://frontend-app-1094631205138.us-central1.run.app'
