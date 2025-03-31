@@ -2,46 +2,30 @@ import React from "react";
 import './NavigationUI.css';
 
 interface NavigationUIProps {
-  directions: string[]; // yönler
+  directions: string[];
 }
 
 const NavigationUI: React.FC<NavigationUIProps> = ({ directions }) => {
-  // Yönlere göre ok simgeleri
-  const renderArrow = (direction: string) => {
+  // Yönlere göre resimleri render et
+  const renderImage = (direction: string) => {
     switch (direction) {
       case "right":
-        return (
-          <>
-            <span className="arrow-icon">→</span>
-            <span>Sağa dön</span>
-          </>
-        );
+        return <img src="/images/right-arrow.png" alt="Right Arrow" className="arrow-image" />;
       case "left":
-        return (
-          <>
-            <span className="arrow-icon">←</span>
-            <span>Sola dön</span>
-          </>
-        );
+        return <img src="/images/left-arrow.png" alt="Left Arrow" className="arrow-image" />;
       case "up":
-        return (
-          <>
-            <span className="arrow-icon">↑</span>
-            <span>Dümdüz ilerle</span>
-          </>
-        );
+        return <img src="/images/up-arrow.png" alt="Up Arrow" className="arrow-image" />;
       default:
         return null;
     }
   };
-
   return (
     <div className="navigation-container">
       {directions.map((direction, index) => (
         <div className="direction-item" key={index}>
           <div className={`direction-arrow ${direction}`}>
             <div className="speech-bubble">
-              {renderArrow(direction)}
+              {renderImage(direction)}
             </div>
           </div>
         </div>
