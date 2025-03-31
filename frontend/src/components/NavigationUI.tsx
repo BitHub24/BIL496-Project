@@ -6,7 +6,7 @@ interface NavigationUIProps {
 }
 
 const NavigationUI: React.FC<NavigationUIProps> = ({ directions }) => {
-  // Yönlere göre ok simgeleri ve açıklamalar
+  // Yönlere göre ok simgeleri
   const renderArrow = (direction: string) => {
     switch (direction) {
       case "right":
