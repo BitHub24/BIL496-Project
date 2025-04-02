@@ -30,22 +30,17 @@ pyjwt==2.9.0
 
 # Ortam değişkenleri ve yardımcı kütüphaneler
 python-dotenv==1.0.1
-urllib3==2.3.0
+django-filter==23.5
+
+# Sosyal medya kimlik doğrulama
+social-auth-app-django==5.4.0
+
+# Coğrafi işlemler
+GDAL==3.10.2
+rtree==1.0.1
+
+# Sistem bağımlılıkları
 numpy==2.2.4
-python-dateutil==2.9.0.post0
-pytz==2025.1
-uuid==1.30
-
-# Güvenlik
-django-password-validators==1.7.3
-
-# Ek bağımlılıklar
-asgiref==3.8.1
-certifi==2025.1.31
-charset-normalizer==3.4.1
-idna==3.10
-sqlparse==0.5.3
-tzdata==2025.1
-
-# Debug ve Test
-django-debug-toolbar==4.3.0
+packaging==24.2
+pycairo==1.27.0
+PyGObject==3.50.0
