@@ -233,7 +233,7 @@ AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
 )
 
-# Social Auth ayarları
+# Social Auth ayarları - sıfırdan yapılandırma
 SOCIAL_AUTH_URL_NAMESPACE = 'social'
 SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/api/users/social-auth/complete/'
 SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/api/users/social-auth/complete/'
@@ -255,6 +255,7 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.getenv('GOOGLE_OAUTH2_CLIENT_SECRET')
 SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
     'https://www.googleapis.com/auth/userinfo.email',
     'https://www.googleapis.com/auth/userinfo.profile',
+    'openid',
 ]
 
 # Google OAuth2 ek ayarları
@@ -268,8 +269,7 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_AUTH_PARAMS = {
     'access_type': 'offline',
 }
 
-# Varsayılan OAUTH davranışını ayarla
-SOCIAL_AUTH_LOGIN_ERROR_URL = 'http://localhost:3000/login'
+# Social Auth davranış ayarları
 SOCIAL_AUTH_RAISE_EXCEPTIONS = True
 SOCIAL_AUTH_SANITIZE_REDIRECTS = False
 
@@ -281,37 +281,30 @@ CSRF_EXEMPT_URLS = [
 # Social Auth kullanıcı alanları
 SOCIAL_AUTH_USER_FIELDS = ['username', 'email', 'first_name', 'last_name']
 
-# Kullanıcı giriş yaptıktan sonra özel view'a yönlendirme
-SOCIAL_AUTH_NEW_ASSOCIATION_REDIRECT_URL = '/api/users/social-auth/complete/'
-SOCIAL_AUTH_DISCONNECT_REDIRECT_URL = '/api/users/social-auth/complete/'
+# Frontend URL tanımı (hem development hem production için)
+FRONTEND_URL = 'http://localhost:3000'
+if not DEBUG:
+    FRONTEND_URL = 'https://frontend-app-1094631205138.us-central1.run.app'
 
-# Social Auth pipelines - Kullanıcı adı, profil ve token işleme
+# Social Auth pipelines - SADE VE GÜVENLİ ÇÖZÜM
 SOCIAL_AUTH_PIPELINE = (
-    # Sosyal profil bilgilerini al
+    # Temel kimlik doğrulama adımları
     'social_core.pipeline.social_auth.social_details',
     'social_core.pipeline.social_auth.social_uid',
     'social_core.pipeline.social_auth.auth_allowed',
     
-    # Önce e-posta ile eşleştirmeyi dene
-    'users.pipeline.associate_by_email',  # İlk olarak e-posta ile eşleştir
+    # ÖNEMLİ: social_user adımı yerine kullandığımız adım - her seferinde yeni kullanıcı oluşturur
+    'users.pipeline.force_new_user',  # Kritik değişiklik burada
     
-    # Eşleşme yoksa, yeni kullanıcı için işlemler
-    'social_core.pipeline.social_auth.social_user',
-    'social_core.pipeline.user.get_username',
-    'users.pipeline.create_unique_username',
-    'social_core.pipeline.user.create_user',
+    # Özel kullanıcı oluşturma (kullanıcı profili de burada oluşturuluyor)
+    'users.pipeline.generate_username',
+    'users.pipeline.create_new_user',
+    
+    # İlişkilendirme - Sadece bağlantı oluştur, tekrar profil oluşturmadan
     'social_core.pipeline.social_auth.associate_user',
     'social_core.pipeline.social_auth.load_extra_data',
-    'social_core.pipeline.user.user_details',
     
-    # Kullanıcı profili ve yönlendirme
-    'users.pipeline.create_user_profile',
-    
-    # Özel complete view'a yönlendirme (token oluşturma için)
-    'users.pipeline.redirect_to_custom_complete',
+    # Token oluştur ve yönlendir
+    'users.pipeline.create_token',
+    'users.pipeline.redirect_to_frontend',
 )
-
-# Social Auth için temel frontend URL'leri
-FRONTEND_URL = 'http://localhost:3000'
-if not DEBUG:
-    FRONTEND_URL = 'https://frontend-app-1094631205138.us-central1.run.app'

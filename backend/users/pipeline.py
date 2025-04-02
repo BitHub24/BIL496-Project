@@ -1,154 +1,264 @@
-from .models import UserProfile
+"""
+Django Social Auth için tamamen yeniden yazılmış pipeline.
+Her Google girişinde kesinlikle yeni bir kullanıcı oluşturacak şekilde tasarlanmıştır.
+"""
+
 from django.shortcuts import redirect
 from rest_framework.authtoken.models import Token
-from django.conf import settings
-import uuid
-import random
-import string
-from social_core.pipeline.user import get_username as social_get_username
 from django.contrib.auth.models import User
-from social_core.exceptions import AuthException, AuthAlreadyAssociated
+from django.conf import settings
+from social_core.exceptions import AuthException
+from .models import UserProfile
+import uuid
+import string
+import random
+import logging
 
-def generate_random_username(length=25):
-    """
-    Belirtilen uzunlukta tamamen rastgele bir kullanıcı adı oluşturur
-    """
-    # Harfler ve rakamlardan oluşan bir karakter seti
-    characters = string.ascii_letters + string.digits
-    # Rastgele bir dizi oluştur
-    random_username = ''.join(random.choice(characters) for _ in range(length))
-    return random_username
+# Logging yapılandırması
+logger = logging.getLogger(__name__)
 
-def get_existing_user_by_email(email):
+def social_details(strategy, details, backend, *args, **kwargs):
     """
-    E-posta adresine göre sistemde kayıtlı kullanıcıyı bulur
+    Sosyal giriş bilgilerini alır.
+    Varsayılan social_details fonksiyonunun davranışı değiştirilmez.
     """
-    if not email:
-        return None
-    
-    try:
-        return User.objects.get(email=email)
-    except User.DoesNotExist:
-        return None
-    except User.MultipleObjectsReturned:
-        # Birden fazla kullanıcı varsa ilkini döndür
-        return User.objects.filter(email=email).first()
+    # DjangoStrategy'de PARTIAL_PIPELINE_DATA yok, doğrudan details döndür
+    return {'details': details}
 
-def create_unique_username(strategy, details, backend, user=None, *args, **kwargs):
+def social_uid(backend, details, response, *args, **kwargs):
     """
-    Google OAuth2 ile giriş yapan kullanıcılar için 25 karakter uzunluğunda
-    benzersiz ve rastgele bir kullanıcı adı oluşturur
+    Kullanıcının sosyal platformdaki UID'sini alır.
+    """
+    # Normal akışı devam ettirir
+    return {'uid': backend.get_user_id(details, response)}
+
+def force_new_user(uid, *args, **kwargs):
+    """
+    Her seferinde yeni kullanıcı oluşturulmasını zorlar.
+    Bu adım, mevcut kullanıcı kontrollerini atlar.
+    """
+    # Burada hiçbir eşleştirme yapma, doğrudan None döndür
+    # Bu sayede her zaman yeni bir kullanıcı oluşturulacak
+    logger.info(f"Yeni kullanıcı oluşturma zorlanıyor. UID: {uid}")
+    return {'social_user': None, 'user': None, 'new_association': True}
+
+def generate_username(strategy, details, user=None, *args, **kwargs):
+    """
+    Tamamen yeni ve benzersiz bir kullanıcı adı oluşturur.
+    Her seferinde farklı ve random bir kullanıcı adı üretir.
     """
     if user:
-        return {'username': strategy.storage.user.get_username(user)}
+        logger.info(f"Mevcut kullanıcı adı kullanılıyor: {user.username}")
+        return {'username': user.username}
     
-    # E-posta adresiyle eşleşen kullanıcı var mı bak
-    email = details.get('email')
+    # Google'dan e-posta al
+    email = details.get('email', '')
     if email:
-        try:
-            existing_user = User.objects.get(email=email)
-            # Eğer bu e-posta ile bir kullanıcı varsa, o kullanıcıyı kullan
-            return {'username': existing_user.username}
-        except User.DoesNotExist:
-            pass
-        except User.MultipleObjectsReturned:
-            # Birden fazla varsa, ilkini kullan
-            existing_user = User.objects.filter(email=email).first()
-            return {'username': existing_user.username}
+        email_prefix = email.split('@')[0] if '@' in email else ''
+        safe_prefix = ''.join(c for c in email_prefix if c.isalnum() or c == '_')[:10]
+        if safe_prefix:
+            # E-posta öneki ve timestamp kullan
+            timestamp = uuid.uuid4().hex[:6]
+            random_str = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+            username = f"{safe_prefix}_{timestamp}_{random_str}"
+        else:
+            # Sadece timestamp ve random karakterler
+            timestamp = uuid.uuid4().hex[:8]
+            random_str = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+            username = f"user_{timestamp}_{random_str}"
+    else:
+        # E-posta yoksa tamamen rastgele
+        timestamp = uuid.uuid4().hex[:8]
+        random_str = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
+        username = f"user_{timestamp}_{random_str}"
     
-    # Kullanıcı modeli al
-    # 25 karakterlik rastgele ve benzersiz bir kullanıcı adı oluştur
-    username = generate_random_username(25)
+    # Maksimum uzunluğu sınırla (Django 150 karakter sınırı var ama 30 makul)
+    username = username[:30]
     
-    # Kullanıcı adının var olup olmadığını kontrol et ve benzersiz oluncaya kadar tekrar oluştur
+    # Benzersizliği kontrol et
     attempts = 0
+    base_username = username
     while User.objects.filter(username=username).exists() and attempts < 10:
-        username = generate_random_username(25)
+        suffix = str(random.randint(1, 1000))
+        username = f"{base_username[:26]}_{suffix}"
         attempts += 1
     
-    print(f"Yeni kullanıcı oluşturuluyor, benzersiz rastgele kullanıcı adı: {username}")
+    logger.info(f"Benzersiz kullanıcı adı oluşturuldu: {username}")
     return {'username': username}
 
-def associate_by_email(strategy, details, backend, user=None, *args, **kwargs):
+def create_new_user(strategy, details, backend, user=None, username=None, *args, **kwargs):
     """
-    E-posta adresine göre mevcut kullanıcıyı bul ve ilişkilendir
-    Bu işlem, AuthAlreadyAssociated hatasını önlemeye yardımcı olur
+    Her seferinde tamamen yeni bir kullanıcı oluşturur.
     """
+    # Mevcut bir kullanıcı varsa ve zorla yeni kullanıcı oluşturma modu aktif DEĞİLSE
     if user:
+        logger.info(f"Mevcut kullanıcı kullanılıyor: {user.username}")
         return {'user': user}
-        
-    email = details.get('email')
+    
+    # E-posta kontrolü
+    email = details.get('email', '')
     if not email:
-        return None
+        logger.error("Kullanıcı oluşturulamadı: E-posta adresi eksik")
+        email = f"no-email-{uuid.uuid4().hex[:8]}@example.com"  # Varsayılan e-posta oluştur
     
-    # E-posta adresiyle eşleşen kullanıcıları bul
-    try:
-        existing_user = User.objects.get(email=email)
-        return {'user': existing_user}
-    except User.DoesNotExist:
-        return None
-    except User.MultipleObjectsReturned:
-        existing_user = User.objects.filter(email=email).first()
-        return {'user': existing_user}
+    # Kullanıcı adı kontrolü
+    if not username:
+        username_data = generate_username(strategy, details)
+        username = username_data.get('username', '')
+        if not username:
+            username = f"user_{uuid.uuid4().hex[:15]}"
     
-    return None
-
-def create_user_profile(backend, user, response, *args, **kwargs):
-    """
-    Kullanıcı profili oluşturur veya günceller
-    """
-    if backend.name == 'google-oauth2':
-        if not hasattr(user, 'user_profile'):
-            UserProfile.objects.create(user=user)
-            print(f"Kullanıcı profili oluşturuldu: {user.username}")
-        
-        # Kullanıcının adı ve soyadını Google'dan güncelle (eğer boşsa)
-        if not user.first_name and 'given_name' in response:
-            user.first_name = response.get('given_name', '')
-            user.save(update_fields=['first_name'])
-        
-        if not user.last_name and 'family_name' in response:
-            user.last_name = response.get('family_name', '')
-            user.save(update_fields=['last_name'])
-
-def redirect_to_custom_complete(backend, user, response, *args, **kwargs):
-    """
-    Google OAuth2 ile giriş sonrası doğrudan frontend'e yönlendirir
-    """
-    try:
-        # Token oluştur veya var olanı getir
-        token, created = Token.objects.get_or_create(user=user)
-        
-        # Frontend URL'i oluştur
-        if settings.DEBUG:
-            frontend_url = 'http://localhost:3000'
+    # İsim ve soyisim bilgileri
+    first_name = details.get('first_name', '')
+    last_name = details.get('last_name', '')
+    
+    # E-posta adresi zaten kullanıldıysa benzersiz yap
+    if User.objects.filter(email=email).exists():
+        unique_suffix = uuid.uuid4().hex[:8]
+        email_parts = email.split('@')
+        if len(email_parts) == 2:
+            email = f"{email_parts[0]}+{unique_suffix}@{email_parts[1]}"
         else:
-            frontend_url = 'https://frontend-app-1094631205138.us-central1.run.app'
+            email = f"{username}@example.com"  # Yedek çözüm
+    
+    logger.info(f"Yeni kullanıcı oluşturuluyor: {username} ({email})")
+    
+    # Kullanıcı oluştur
+    user = User.objects.create_user(
+        username=username,
+        email=email,
+        first_name=first_name,
+        last_name=last_name,
+        password=uuid.uuid4().hex  # Rastgele şifre
+    )
+    
+    # Kullanıcı profili oluştur - SADECE profil yoksa
+    try:
+        # Profil varsa getir
+        from .models import UserProfile
+        UserProfile.objects.get(user=user)
+        logger.info(f"Kullanıcı profili zaten var: {user.username}")
+    except UserProfile.DoesNotExist:
+        # Profil yoksa oluştur
+        UserProfile.objects.create(user=user)
+        logger.info(f"Yeni kullanıcı profili oluşturuldu: {user.username}")
+    
+    return {
+        'user': user,
+        'is_new': True,
+        'new_association': True
+    }
+
+def associate_user(backend, uid, user=None, social=None, *args, **kwargs):
+    """
+    Kullanıcıyı sosyal hesapla ilişkilendirir.
+    """
+    # Kullanıcı yoksa devam etme
+    if not user:
+        logger.error("İlişkilendirme başarısız: Kullanıcı mevcut değil")
+        return None
+    
+    # Normal ilişkilendirme işlemi
+    return {
+        'social': backend.strategy.storage.user.create_social_auth(
+            user, uid, backend.name
+        ),
+        'user': user,
+        'new_association': True
+    }
+
+def load_extra_data(backend, details, response, uid, user=None, social=None, *args, **kwargs):
+    """
+    Sosyal hesaptan ek verileri yükler.
+    """
+    if not social:
+        logger.warning("Ek veri yüklenemedi: Sosyal auth kaydı mevcut değil")
+        return None
+    
+    # Normal ekstra veri yükleme işlemi
+    extra_data = backend.extra_data(user, uid, response, details, *args, **kwargs)
+    if extra_data and social:
+        social.set_extra_data(extra_data)
+    return {'social': social}
+
+def user_details(backend, details, response, user=None, *args, **kwargs):
+    """
+    Kullanıcı detaylarını günceller.
+    """
+    if not user:
+        logger.warning("Kullanıcı detayları güncellenemedi: Kullanıcı mevcut değil")
+        return None
+    
+    # Kullanıcının adı ve soyadını güncelle (eğer boşsa)
+    changed = False
+    if details.get('first_name') and not user.first_name:
+        user.first_name = details.get('first_name')
+        changed = True
+    
+    if details.get('last_name') and not user.last_name:
+        user.last_name = details.get('last_name')
+        changed = True
+    
+    if changed:
+        user.save()
+    
+    return {'user': user}
+
+def create_token(backend, user, response, *args, **kwargs):
+    """
+    Kullanıcı için bir token oluşturur.
+    """
+    if not user:
+        logger.error("Token oluşturulamadı: Kullanıcı mevcut değil")
+        return None
+    
+    # Token oluştur veya var olanı getir
+    token, created = Token.objects.get_or_create(user=user)
+    if created:
+        logger.info(f"Yeni token oluşturuldu: {user.username}")
+    else:
+        logger.info(f"Mevcut token kullanılıyor: {user.username}")
+    
+    return {'token': token}
+
+def redirect_to_frontend(backend, user, response, *args, **kwargs):
+    """
+    İşlem tamamlandıktan sonra frontend'e yönlendirir.
+    """
+    if not user:
+        logger.error("Frontend yönlendirmesi başarısız: Kullanıcı mevcut değil")
+        return redirect('/login?error=auth_failed')
+    
+    # Frontend URL'ini belirle
+    frontend_url = settings.FRONTEND_URL if hasattr(settings, 'FRONTEND_URL') else 'http://localhost:3000'
+    
+    try:
+        # Token'ı al
+        token = kwargs.get('token')
+        if not token:
+            token, _ = Token.objects.get_or_create(user=user)
         
-        # Token ve API anahtarlarını URL parametreleri olarak ekle
-        complete_url = f"{frontend_url}/map?token={token.key}"
+        # URL parametreleri oluştur
+        params = {
+            'token': token.key,
+            'username': user.username,
+            'is_new': str(kwargs.get('is_new', True)).lower()
+        }
         
-        # API anahtarları varsa ekle
+        # API anahtarlarını ekle
         if hasattr(settings, 'HERE_API_KEY') and settings.HERE_API_KEY:
-            complete_url += f"&here_api_key={settings.HERE_API_KEY}"
+            params['here_api_key'] = settings.HERE_API_KEY
             
         if hasattr(settings, 'GOOGLE_API_KEY') and settings.GOOGLE_API_KEY:
-            complete_url += f"&google_api_key={settings.GOOGLE_API_KEY}"
+            params['google_api_key'] = settings.GOOGLE_API_KEY
         
-        # Yeni kullanıcı bilgisini ekle
-        user_is_new = kwargs.get('is_new', False)
-        complete_url += f"&is_new_user={str(user_is_new).lower()}"
+        # URL'i oluştur
+        query_string = '&'.join([f"{key}={value}" for key, value in params.items()])
+        redirect_url = f"{frontend_url}/map?{query_string}"
         
-        # Kullanıcı e-postasını ekle
-        if user.email:
-            complete_url += f"&user_email={user.email}"
+        logger.info(f"Frontend'e yönlendiriliyor: {redirect_url}")
         
-        print(f"Frontend'e yönlendiriliyor: {complete_url}")
-        
-        # Burada social-auth'un normal akışını kırıyoruz ve doğrudan frontend'e yönlendiriyoruz
-        # Bu sayede backend'e hiç uğramadan doğrudan frontend'e gidilecek
-        return redirect(complete_url)
+        return redirect(redirect_url)
     except Exception as e:
-        print(f"redirect_to_custom_complete içinde hata: {e}")
-        # Hata durumunda yine de frontend'e yönlendir
-        return redirect(settings.SOCIAL_AUTH_LOGIN_ERROR_URL) 
+        logger.error(f"Frontend yönlendirme hatası: {str(e)}")
+        return redirect(f"{frontend_url}/login?error=redirect_error") 
