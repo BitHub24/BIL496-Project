@@ -68,6 +68,56 @@ class RegisterSerializer(serializers.ModelSerializer):
         
         return user
 
+class GoogleAuthSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(required=True)
+    name = serializers.CharField(required=True)
+    sub = serializers.CharField(required=True)
+    family_name = serializers.CharField(required=True)
+    given_name = serializers.CharField(required=True)
+    picture = serializers.URLField(required=True)
+    email_verified = serializers.BooleanField(required=True)
+    
+    class Meta:
+        model = User
+        fields = ('email', 'name', 'sub', 
+                 'family_name', 'given_name', 'picture', 'email_verified')
+        extra_kwargs = {
+            'first_name': {'required': False},
+            'last_name': {'required': False},
+            'username': {'required': False},
+            'password': {'required': False},
+        }
+
+    def create(self, validated_data):
+        try:
+            email = validated_data.get('email')
+            user = User.objects.filter(email=email).first()  
+            if user:
+                self._created = False
+                return user  # Existing user
+                
+            full_name = validated_data.get('name', '')
+            unique_id = validated_data.get('sub', '')
+            username = full_name + unique_id
+            username = username.replace(" ", "").lower()
+            
+            # Create user with safe attribute access
+            user = User(
+                username=username,
+                email=email,
+                first_name=validated_data.get('given_name', ''),
+                last_name=validated_data.get('family_name', '')
+            )
+            user.set_unusable_password()
+            user.save()
+
+            self._created = True
+            return user
+            
+        except Exception as e:
+            # Log the error for debugging
+            print(f"Error creating user: {str(e)}")
+            raise serializers.ValidationError(f"Failed to create user: {str(e)}")
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(required=True)
     password = serializers.CharField(required=True, write_only=True)

@@ -11,23 +11,28 @@ import SearchBox from './SearchBox';
 import sourceMarkerIcon from '../assets/source-marker.svg';
 import destinationMarkerIcon from '../assets/destination-marker.svg';
 import pharmacyIconUrl from '../assets/eczane.svg'
+import markerIcon from 'leaflet/dist/images/marker-icon.png';  // Import image for iconUrl
+import markerIconRetina from 'leaflet/dist/images/marker-icon-2x.png';  // Import image for iconRetinaUrl
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';  // Import image for shadowUrl
+
+/*
 import bicycleIconUrl from '../assets/bicycle.png'
 import wifiIconUrl from '../assets/wifi.png'
+*/
 // Fix Leaflet default icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
-  iconUrl: require('leaflet/dist/images/marker-icon.png'),
-  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+  iconRetinaUrl: markerIconRetina,  // Use imported image URL for Retina display
+  iconUrl: markerIcon,  // Use imported image URL for default icon
+  shadowUrl: markerShadow,  // Use imported image URL for shadow
 });
-
 // Custom icons for source and destination
 const sourceIcon = new L.Icon({
   iconUrl: sourceMarkerIcon,
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
-  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+  shadowUrl: markerShadow,
   shadowSize: [41, 41]
 });
 
@@ -36,7 +41,7 @@ const destinationIcon = new L.Icon({
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
-  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+  shadowUrl: markerShadow,
   shadowSize: [41, 41]
 });
 
@@ -47,7 +52,7 @@ const pharmacyIcon = new L.Icon({
   iconAnchor: [12, 25],
   popupAnchor: [1, -34]
 });
-
+/*
 const bicycleIcon = new L.Icon({
   iconUrl: bicycleIconUrl,
   iconSize: [25, 25],
@@ -61,7 +66,7 @@ const wifiIcon = new L.Icon({
   iconAnchor: [12, 25],
   popupAnchor: [1, -34]
 });
-
+*/
 // Ankara coordinates and bounds
 const ANKARA_CENTER: L.LatLngTuple = [39.9334, 32.8597];
 const ANKARA_BOUNDS: L.LatLngBoundsLiteral = [
@@ -74,13 +79,14 @@ const MapComponent: React.FC = () => {
   const [map, setMap] = useState<L.Map | null>(null);
   const [source, setSource] = useState<Coordinate | null>(null);
   const [destination, setDestination] = useState<Coordinate | null>(null);
-  const [routeLayer, setRouteLayer] = useState<L.Layer | null>(null);
+  //const [routeLayer, setRouteLayer] = useState<L.Layer | null>(null);
   const [sourceMarker, setSourceMarker] = useState<L.Marker | null>(null);
   const [destinationMarker, setDestinationMarker] = useState<L.Marker | null>(null);
   const [poiMarkers, setPoiMarkers] = useState<L.Marker[]>([]);
 
   const sourceSearchRef = useRef<SearchBoxRef>(null);
   const destinationSearchRef = useRef<SearchBoxRef>(null);
+  const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL;
 
   useEffect(() => {
     const mapInstance = L.map('map', {
@@ -205,7 +211,7 @@ const MapComponent: React.FC = () => {
 
 
       const response = await axios.get<Pharmacy[]>(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/pharmacies/nearest?lat=${source?.lat}&lng=${source?.lng}&date=2025-03-20`
+        `${BACKEND_API_URL}/api/pharmacies/nearest?lat=${source?.lat}&lng=${source?.lng}&date=2025-03-20`
       );
 
       // Process the data with proper type safety
@@ -271,7 +277,6 @@ const MapComponent: React.FC = () => {
       });
 
       const { latitude, longitude } = position.coords;
-      const userLocation: Coordinate = { lat: latitude, lng: longitude };
 
       // Check if the location is within Ankara bounds
       const ankaraBounds = L.latLngBounds(ANKARA_BOUNDS);
@@ -411,7 +416,7 @@ const MapComponent: React.FC = () => {
         return;
       }
       const response = await axios.post<RouteResponse>(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/directions/route/`,
+        `${BACKEND_API_URL}/api/directions/route/`,
         { start, end }
       );
 

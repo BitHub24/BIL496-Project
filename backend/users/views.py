@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
-from .serializers import RegisterSerializer, UserSerializer, LoginSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer
+from .serializers import GoogleAuthSerializer, RegisterSerializer, UserSerializer, LoginSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer
 from .models import UserProfile
 from django.conf import settings
 import uuid
@@ -35,6 +35,26 @@ class RegisterView(generics.CreateAPIView):
             'user': user_serializer.data,
             'token': token.key
         }, status=status.HTTP_201_CREATED)
+class GoogleAuthView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = GoogleAuthSerializer
+    permission_classes = [permissions.AllowAny]  # Herkesin erişebilmesi için
+    
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        
+        created = getattr(serializer, '_created', False)
+
+        token, _ = Token.objects.get_or_create(user=user)
+        user_serializer = UserSerializer(user)
+
+        return Response({
+            'user': user_serializer.data,
+            'token': token.key
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]  # Herkesin erişebilmesi için
