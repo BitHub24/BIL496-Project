@@ -39,9 +39,16 @@ const TransportModeSelector: React.FC<TransportModeSelectorProps> = ({
       // const controller = new AbortController();
       // const timeoutId = setTimeout(() => controller.abort(), 3000);
 
+      let apiUrl;
+      if (selectedMode === "transit") {
+        apiUrl = `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/directions/transit/`;
+      } else {
+        apiUrl = `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/directions/route/`;
+      }
+
       // Make a test request to the transit API
       const response = await axios.post(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/directions/transit/`,
+        apiUrl,
         {
           start: { lat: 39.9334, lng: 32.8597 }, // Ankara center
           end: { lat: 39.9334, lng: 32.8697 }    // Nearby point

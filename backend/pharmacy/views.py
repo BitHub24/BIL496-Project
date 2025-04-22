@@ -9,6 +9,7 @@ from django.http import JsonResponse
 import math
 import requests
 from rest_framework.permissions import AllowAny, IsAuthenticated
+import logging
 
 from .models import Pharmacy
 from .serializers import PharmacySerializer
@@ -124,7 +125,7 @@ class DutyPharmacyView(APIView):
             print(f"[{self.__class__.__name__}] Error: {e}")
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# --- NearestPharmacyView (Otomatik fetch kaldırıldı) --- 
+# --- NearestPharmacyView (Otomatik fetch eklendi) ---
 class NearestPharmacyView(APIView):
     # permission_classes = [IsAuthenticated]
 
@@ -154,51 +155,87 @@ class NearestPharmacyView(APIView):
 
             pharmacies = Pharmacy.objects.filter(date=target_date)
 
-            # Sadece veritabanında var mı diye bakıyoruz
+            # Veritabanında veri yoksa, çekmeyi dene
             if not pharmacies.exists():
-                 print(f"[{self.__class__.__name__}] No data found for {target_date}. Returning 404.")
-                 return Response({"error": f"{target_date} için nöbetçi eczane verisi bulunamadı"}, status=status.HTTP_404_NOT_FOUND)
+                logging.warning(f"[{self.__class__.__name__}] Data not found for {target_date}. Triggering fetch...")
+                fetch_successful = _fetch_and_save_pharmacies(target_date) # Scraper'ı çağır
 
-            # --- Geri kalan mesafe hesaplama ve geocoding mantığı aynı ---
+                if fetch_successful:
+                    logging.info(f"[{self.__class__.__name__}] Fetch reported success for {target_date}. Re-querying database...")
+                    # Fetch sonrası tekrar sorgula
+                    pharmacies = Pharmacy.objects.filter(date=target_date)
+                else:
+                     logging.error(f"[{self.__class__.__name__}] Fetch failed for {target_date}. Returning error.")
+                     # Fetch başarısız olduysa hata dön (500)
+                     return Response({"error": f"Failed to fetch pharmacy data for {target_date}."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            # Fetch sonrası veya ilk sorguda hala veri yoksa, 404 dön
+            if not pharmacies.exists():
+                 logging.warning(f"[{self.__class__.__name__}] Data still not found for {target_date} after fetch attempt. Returning 404.")
+                 return Response({"error": f"{target_date} için nöbetçi eczane verisi bulunamadı (fetch denendi)."}, status=status.HTTP_404_NOT_FOUND)
+
+            # --- Veri bulunduysa, geri kalan mesafe hesaplama ve geocoding mantığı ---
+            logging.info(f"[{self.__class__.__name__}] Data found for {target_date}. Proceeding with calculation...")
             pharmacies_without_location = []
             pharmacies_with_location = []
-            
+
             for pharmacy in pharmacies:
                 if pharmacy.latitude is not None and pharmacy.longitude is not None:
                     distance = calculate_distance(latitude, longitude, pharmacy.latitude, pharmacy.longitude)
                     pharmacies_with_location.append((pharmacy, distance))
                 else:
                     pharmacies_without_location.append(pharmacy)
-            
+
+            # Konumu olmayanları geocode etmeyi dene (limitli sayıda)
             if pharmacies_without_location and len(pharmacies_with_location) < count:
+                # Geocoding için HERE API anahtarını settings'den al (veya çevre değişkeninden)
+                # here_api_key = getattr(settings, 'HERE_API_KEY', None)
+                # if not here_api_key:
+                #      logging.error("HERE API Key not configured for geocoding.")
+                # else:
+                #      logging.info(f"Attempting geocoding for {len(pharmacies_without_location)} pharmacies.")
+
                 for pharmacy in pharmacies_without_location:
+                    # Geocoding servisini burada kullanabiliriz. Örnek olarak HERE Geocoding kullanıldı.
+                    # Kendi geocoding servisinizi (varsa /api/geocoding/search/) veya başka bir servisi kullanabilirsiniz.
+                    # Dikkat: Harici API çağrıları yavaş olabilir ve rate limitlere tabi olabilir.
                     try:
-                        query = f"{pharmacy.name} {pharmacy.address} {pharmacy.district}"
+                        query = f"{pharmacy.name}, {pharmacy.address}, {pharmacy.district}, Ankara" # Daha spesifik sorgu
+                        # Örnek HERE Geocode API isteği (kendi API anahtarınızı kullanın)
+                        # geocode_url = f"https://geocode.search.hereapi.com/v1/geocode?q={requests.utils.quote(query)}&apiKey={here_api_key}&in=countryCode:TUR&at={latitude},{longitude}" # Yakındaki sonuçları önceliklendir
+                        # geocode_response = requests.get(geocode_url)
+                        # geocode_response.raise_for_status() # HTTP hatalarını kontrol et
+                        # geocode_data = geocode_response.json()
+
+                        # VEYA kendi /api/geocoding/search/ endpoint'inizi kullanın:
                         geocoding_url = f"{request.scheme}://{request.get_host()}/api/geocoding/search/"
-                        response = requests.get(
-                            geocoding_url,
-                            params={"q": query, "limit": 1}
-                        )
-                        if response.status_code == 200:
-                            data = response.json()
-                            if data.get('items') and len(data['items']) > 0:
-                                position = data['items'][0].get('position')
-                                if position and 'lat' in position and 'lng' in position:
-                                    pharmacy.latitude = position['lat']
-                                    pharmacy.longitude = position['lng']
-                                    pharmacy.save()
-                                    distance = calculate_distance(latitude, longitude, pharmacy.latitude, pharmacy.longitude)
-                                    pharmacies_with_location.append((pharmacy, distance))
-                                else:
-                                     print(f"[{self.__class__.__name__}] Geocoding successful but position data missing or incomplete for {pharmacy.name}")
+                        geocode_response = requests.get(
+                             geocoding_url,
+                             params={"q": query, "limit": 1}
+                         )
+                        geocode_response.raise_for_status()
+                        geocode_data = geocode_response.json()
+
+
+                        if geocode_data.get('items') and len(geocode_data['items']) > 0:
+                            position = geocode_data['items'][0].get('position')
+                            if position and 'lat' in position and 'lng' in position:
+                                pharmacy.latitude = position['lat']
+                                pharmacy.longitude = position['lng']
+                                pharmacy.save(update_fields=['latitude', 'longitude', 'updated_at']) # Sadece değişen alanları kaydet
+                                distance = calculate_distance(latitude, longitude, pharmacy.latitude, pharmacy.longitude)
+                                pharmacies_with_location.append((pharmacy, distance))
+                                logging.info(f"Geocoding successful for {pharmacy.name}")
                             else:
-                                print(f"[{self.__class__.__name__}] Geocoding returned no items for {pharmacy.name}")
+                                 logging.warning(f"Geocoding successful but position data missing or incomplete for {pharmacy.name}")
                         else:
-                            print(f"[{self.__class__.__name__}] Geocoding request failed for {pharmacy.name} with status {response.status_code}")
+                            logging.warning(f"Geocoding returned no items for {pharmacy.name} with query: {query}")
+                    except requests.exceptions.RequestException as req_err:
+                        logging.error(f"Geocoding request failed for {pharmacy.name}: {req_err}")
                     except Exception as e:
-                        print(f"[{self.__class__.__name__}] Error during geocoding for {pharmacy.name}: {e}")
-                        pass
-            
+                        logging.error(f"Error during geocoding or saving for {pharmacy.name}: {e}")
+                        pass # Bir eczane için hata olursa devam et
+
             pharmacies_with_location.sort(key=lambda x: x[1])
             nearest_pharmacies = pharmacies_with_location[:count]
             result = []
@@ -206,10 +243,10 @@ class NearestPharmacyView(APIView):
                 pharmacy_data = PharmacySerializer(pharmacy).data
                 pharmacy_data['distance'] = round(distance, 2)
                 result.append(pharmacy_data)
-            
-            print(f"[{self.__class__.__name__}] Returning {len(result)} nearest pharmacies for date {target_date}")
+
+            logging.info(f"[{self.__class__.__name__}] Returning {len(result)} nearest pharmacies for date {target_date}")
             return Response(result)
-                
+
         except Exception as e:
-            print(f"[{self.__class__.__name__}] General error: {e}")
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 
+            logging.exception(f"[{self.__class__.__name__}] General error in get method.") # Hatanın traceback'ini logla
+            return Response({"error": "An unexpected server error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 

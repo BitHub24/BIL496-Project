@@ -1,13 +1,23 @@
 /// <reference types="react" />
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import './MapComponent.css';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { toast } from 'sonner';
 import {
-  Coordinate, Pharmacy, PointOfInterest, RouteResponse, GeocodeResponse, SearchBoxRef, SearchBoxProps
-} from '../models/Models';
+  Coordinate,
+  Pharmacy,       // Now defined and exported
+  WiFiPoint,      // Now defined and exported
+  BicyclePoint,   // Now defined and exported
+  PointOfInterest, // Now defined and exported
+  RouteResponse,   // Now defined and exported
+  GeocodeResponse, // Now defined and exported
+  CheckStatusResponse, // Now defined and exported
+  SearchBoxRef,
+  SearchBoxProps,
+  GoogleGeocodeResponse // For direct Google API call
+} from "../models/Models"; // Use .ts extension implicitly
 import SearchBox from './SearchBox';
 import MapStylesControl from './MapStylesControl';
 import TransportModeSelector from './TransportModeSelector';
@@ -78,12 +88,6 @@ const ANKARA_BOUNDS: L.LatLngBoundsLiteral = [
   [40.1, 33.2]  // Northeast coordinates
 ];
 
-// Yeni eklenen interface
-interface CheckStatusResponse {
-  status: 'exists' | 'fetched' | 'failed' | 'error'; // Olası durumlar
-  message: string;
-}
-
 // Yeni Prop Arayüzü
 interface MapComponentProps {
   isLoggedIn: boolean;
@@ -114,6 +118,14 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   const [openControl, setOpenControl] = useState<'styles' | 'menu' | null>(null);
   const [dataCheckStatus, setDataCheckStatus] = useState<string>('idle'); // 'idle', 'checking', 'exists', 'fetched', 'failed', 'error'
   const [activeInput, setActiveInput] = useState<'source' | 'destination'>('destination');
+  const [loadingPharmacies, setLoadingPharmacies] = useState<boolean>(false);
+  const [loadingRoute, setLoadingRoute] = useState<boolean>(false);
+  const [wifiPoints, setWifiPoints] = useState<PointOfInterest[]>([]);
+  const [bicyclePoints, setBicyclePoints] = useState<PointOfInterest[]>([]);
+  const [showWifi, setShowWifi] = useState<boolean>(false);
+  const [showBicycle, setShowBicycle] = useState<boolean>(false);
+  const [loadingWifi, setLoadingWifi] = useState<boolean>(false);
+  const [loadingBicycle, setLoadingBicycle] = useState<boolean>(false);
   
   // İşaretçiler için useState yerine useRef kullan
   const sourceMarkerRef = useRef<L.Marker | null>(null);
@@ -128,6 +140,8 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   const prevRouteLayerRef = useRef<L.Layer | null>(null); // Önceki rota katmanı için de ref
   const prevSourceRef = useRef<Coordinate | null>(null); // Önceki kaynak/hedef ref'leri
   const prevDestRef = useRef<Coordinate | null>(null);
+  const wifiMarkersRef = useRef<L.LayerGroup | null>(null);
+  const bicycleMarkersRef = useRef<L.LayerGroup | null>(null);
 
   useEffect(() => {
     const mapInstance = L.map('map', {
@@ -159,48 +173,45 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
 
     // Clean up map instance on component unmount
     return () => {
-      mapInstance.off('click', handleMapClick);
-      mapInstance.remove();
-      mapRef.current = null;
+      if (mapRef.current) {
+        mapRef.current.remove(); // Use Leaflet's remove method for proper cleanup
+        mapRef.current = null;
+      }
     };
   }, []);
 
-  useEffect(() => {
-    const checkTodayData = async () => {
-      setDataCheckStatus('checking');
-      console.log('[checkTodayData] Checking for today\'s pharmacy data...');
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          console.warn('[checkTodayData] No token found, skipping data check.');
-          setDataCheckStatus('idle'); 
-          return;
-        }
-        
-        const response = await axios.get<CheckStatusResponse>(
-          `${process.env.REACT_APP_BACKEND_API_URL}/api/pharmacies/check-today/`,
-          {
-            headers: {
-              'Authorization': `Token ${token}`
-            }
-          }
-        );
-        console.log('[checkTodayData] Backend response:', response.data);
-        setDataCheckStatus(response.data.status || 'failed');
-        
-        if (response.data.status === 'fetched') {
-          console.info('Today\'s pharmacy data was missing and has been updated.');
-        } else if (response.data.status === 'failed' || response.data.status === 'error') {
-           console.error('Failed to check or fetch today\'s pharmacy data:', response.data.message);
-        }
-
-      } catch (error: any) {
-        console.error('[checkTodayData] Error checking pharmacy data:', error.response?.data || error.message);
-        setDataCheckStatus('failed');
+  const checkTodayData = useCallback(async () => {
+    setDataCheckStatus('checking');
+    console.log('[checkTodayData] Checking for today\'s pharmacy data...');
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn('[checkTodayData] No token found, skipping data check.');
+        setDataCheckStatus('idle'); 
+        return;
       }
-    };
+      
+      const response = await axios.get<CheckStatusResponse>(
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/pharmacies/check-today/`,
+        {
+          headers: {
+            'Authorization': `Token ${token}`
+          }
+        }
+      );
+      console.log('[checkTodayData] Backend response:', response.data);
+      setDataCheckStatus(response.data.status || 'failed');
+      
+      if (response.data.status === 'fetched') {
+        console.info('Today\'s pharmacy data was missing and has been updated.');
+      } else if (response.data.status === 'failed' || response.data.status === 'error') {
+         console.error('Failed to check or fetch today\'s pharmacy data:', response.data.message);
+      }
 
-    checkTodayData();
+    } catch (error: any) {
+      console.error('[checkTodayData] Error checking pharmacy data:', error.response?.data || error.message);
+      setDataCheckStatus('failed');
+    }
   }, []);
 
   const clearPoiMarkers = () => {
@@ -216,32 +227,38 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
 
   const findNearestAddress = async (lat: number, lng: number): Promise<string> => {
     try {
-      const response = await axios.get<GeocodeResponse>('https://maps.googleapis.com/maps/api/geocode/json', {
+      // Use the specific type for Google Geocoding API response
+      const response = await axios.get<GoogleGeocodeResponse>('https://maps.googleapis.com/maps/api/geocode/json', {
         params: {
           latlng: `${lat},${lng}`,
-          key: localStorage.getItem('googleApiKey')
+          key: localStorage.getItem('googleApiKey') // Ensure API key exists and is correct
         }
       });
 
       const data = response.data;
-      console.log(data);
+      console.log("Google Geocode Response:", data); // Log for debugging
 
-      const result = data.results[0];
+      if (data.status !== 'OK' || !data.results || data.results.length === 0) {
+          console.error('Geocoding failed or returned no results:', data.status);
+          return `${lat.toFixed(5)}, ${lng.toFixed(5)}`; // Fallback to coordinates
+      }
+
+      const result = data.results[0]; // Access the first result
       const addressComponents = result.address_components;
 
       // Extract street number and street name
-      const streetNumber = addressComponents.find((comp) => comp.types.includes('street_number'))?.long_name;
-      const streetName = addressComponents.find((comp) => comp.types.includes('route'))?.long_name;
+      const streetNumber = addressComponents.find((comp: any) => comp.types.includes('street_number'))?.long_name;
+      const streetName = addressComponents.find((comp: any) => comp.types.includes('route'))?.long_name;
 
       if (streetName && streetNumber) {
         return `${streetName} ${streetNumber}`;
       }
 
-      // Fallback to full formatted address
-      return result.formatted_address || '';
+      // Fallback to full formatted address if street name/number not found
+      return result.formatted_address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
     } catch (error) {
-      console.error('Error finding nearest address:', error);
-      return '';
+      console.error('Error finding nearest address via Google Geocoding:', error);
+      return `${lat.toFixed(5)}, ${lng.toFixed(5)}`; // Fallback to coordinates on error
     }
   };
 
@@ -277,6 +294,36 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
     mapRef.current.closePopup();
   };
 
+  // --- Popup Buton Event Listener Eklemek İçin Yardımcı Fonksiyon --- 
+  const addPopupEventListener = (marker: L.Marker, handler: (lat: number, lng: number, address: string) => void) => {
+    marker.on('popupopen', () => {
+        if (!mapRef.current) return;
+        const popupPane = mapRef.current.getPane('popupPane');
+        if (!popupPane) return;
+        // Birden fazla buton olabileceği ihtimaline karşı querySelectorAll kullanıp döngü yapabiliriz
+        // Şimdilik tek buton varsayıyoruz
+        const button = popupPane.querySelector('.popup-directions-button'); 
+        if (button) {
+            const listener = (event: Event) => {
+                // Tıklanan butondan verileri al
+                const target = event.currentTarget as HTMLElement;
+                const btnLat = parseFloat(target.getAttribute('data-lat') || '0');
+                const btnLng = parseFloat(target.getAttribute('data-lng') || '0');
+                // Adresi decode etmeyi unutma (URL encoding'i kaldır)
+                const btnAddr = decodeURIComponent(target.getAttribute('data-address') || '');
+                if (btnLat && btnLng) {
+                    console.log(`[Popup Button Click] Calling handler for ${btnAddr}`);
+                    handler(btnLat, btnLng, btnAddr); 
+                }
+            };
+            // Eski listener'ı kaldırıp yenisini ekle (önemli!)
+            button.removeEventListener('click', listener);
+            button.addEventListener('click', listener);
+        }
+    });
+  };
+  // ----------------------------------------------------------------
+
   const addPoiMarkers = (points: PointOfInterest[], icon: L.Icon, titleKey: keyof PointOfInterest = 'name') => {
     console.log('[addPoiMarkers] Function called with points:', points); 
     if (!mapRef.current) {
@@ -310,21 +357,26 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         if (point.phone) popupContent += `<p>Tel: ${point.phone}</p>`;
         if (point.distance) popupContent += `<p>Mesafe: ${point.distance.toFixed(2)} km</p>`;
         
-        // --- Rota Oluştur Butonu Eklendi ---
-        popupContent += `<button 
+        // --- Rota Oluştur Butonu Eklendi (WiFi/Bisiklet için) --- 
+        popupContent += `<div><button 
           class="popup-directions-button" 
+          style="margin-top: 5px;" /* Üstten küçük bir boşluk ekleyelim */
           data-lat="${point.lat}" 
           data-lng="${point.lng}" 
-          data-address="${address}"
+          data-address="${encodeURIComponent(address)}" // Adresi encode et (boş olabilir)
         >
-          Buraya Rota Oluştur
-        </button>`;
-        // ------------------------------------
+          Get Directions Here
+        </button></div>`;
+        // ---------------------------------------------------------
 
         popupContent += `</div>`;
 
         marker.bindPopup(popupContent);
         
+        // --- Yeni Event Listener Ekleme --- 
+        addPopupEventListener(marker, handleSetPharmacyAsDestination); // Handler'ı dışarıdan alıyor
+        // ---------------------------------
+
         console.log(`[addPoiMarkers] Adding marker ${index + 1} to map.`);
         marker.addTo(mapRef.current!);
         newMarkers.push(marker);
@@ -354,51 +406,42 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   };
 
   const fetchPharmacies = async () => {
-    console.log('[fetchPharmacies] Function called.');
+    if (!source) {
+      toast.error("Current location not available to find nearby pharmacies.");
+      return;
+    }
+    setLoadingPharmacies(true);
+    const today = new Date().toISOString().split("T")[0]; // Format date as YYYY-MM-DD
+    //const apiUrl = `/api/pharmacies/nearest/?lat=${source?.lat}&lng=${source?.lng}`;
+    const apiUrl = `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/pharmacies/nearest/?lat=${source?.lat}&lng=${source?.lng}&date=${today}`;
+
     try {
-      if (!source) {
-        console.error('[fetchPharmacies] Error: Source location is not set.');
-        return;
-      }
-      if (!mapRef.current) {
-        console.error('[fetchPharmacies] Error: Map is not initialized.');
-        return;
-      }
+      const token = localStorage.getItem('token');
+      // Use the specific Pharmacy type for the API response
+      const response = await axios.get<Pharmacy[]>(apiUrl, {
+        headers: token ? { 'Authorization': `Token ${token}` } : {}
+      });
 
-      const today = new Date().toISOString().split('T')[0];
-      // URL sonunda '/' olduğundan emin olalım
-      const apiUrl = `${process.env.REACT_APP_BACKEND_API_URL}/api/pharmacies/nearest/?lat=${source?.lat}&lng=${source?.lng}&date=${today}`;
-      console.log('[fetchPharmacies] Fetching from API URL:', apiUrl);
-
-      const response = await axios.get<Pharmacy[]>( // GET isteği olduğunu varsayıyorum, nearest için mantıklı
-        apiUrl,
-        {
-          headers: {
-            'Authorization': `Token ${localStorage.getItem('token')}`
-          }
-        }
-      );
-      console.log('[fetchPharmacies] Raw API response:', response.data);
-
-      const pharmacies: PointOfInterest[] = response.data
+      // Filter remains the same, but the type assertion might be more specific now
+      const pharmaciesPOIs: PointOfInterest[] = response.data
         .filter((pharmacy): pharmacy is Pharmacy => 
             pharmacy && pharmacy.location && 
             typeof pharmacy.location.lat === 'number' && 
             typeof pharmacy.location.lng === 'number'
         )
-        .map(pharmacy => ({
+        .map(pharmacy => ({ // Map Pharmacy to PointOfInterest
             id: pharmacy.id,
             name: pharmacy.name,
             address: pharmacy.address,
             phone: pharmacy.phone,
             lat: pharmacy.location.lat,
             lng: pharmacy.location.lng,
-            ...(pharmacy.distance && { distance: pharmacy.distance }),
-            ...(pharmacy.district && { district: pharmacy.district }),
-            ...(pharmacy.extra_info && { extra_info: pharmacy.extra_info })
+            distance: pharmacy.distance,
+            district: pharmacy.district,
+            extra_info: pharmacy.extra_info
         }));
 
-       if (pharmacies.length === 0) {
+      if (pharmaciesPOIs.length === 0) {
             console.warn('[fetchPharmacies] No valid pharmacies found in response (possibly after filtering).');
             alert('No duty pharmacies found near the selected location for today.'); 
             // POI marker'larını temizleyebiliriz?
@@ -406,9 +449,11 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
             return;
         }
         
-        if (destinationMarkerRef.current && mapRef.current.hasLayer(destinationMarkerRef.current)) {
+        if (destinationMarkerRef.current && mapRef.current && mapRef.current.hasLayer(destinationMarkerRef.current)) {
             console.log("[fetchPharmacies] Removing existing destination marker.");
-            mapRef.current.removeLayer(destinationMarkerRef.current);
+            if (mapRef.current) {
+              mapRef.current.removeLayer(destinationMarkerRef.current);
+            }
             destinationMarkerRef.current = null;
             setDestination(null);
             if (destinationSearchRef.current) {
@@ -416,10 +461,10 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
             }
         }
 
-        addPoiMarkers(pharmacies, pharmacyIcon, 'name');
+        addPoiMarkers(pharmaciesPOIs, pharmacyIcon, 'name');
         console.log('[fetchPharmacies] Called addPoiMarkers.');
         
-        const closestPharmacy = pharmacies[0]; 
+        const closestPharmacy = pharmaciesPOIs[0]; 
         console.log('[fetchPharmacies] Closest pharmacy selected:', closestPharmacy);
         setDestination({
             lat: closestPharmacy.lat,
@@ -436,7 +481,6 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
               { lat: closestPharmacy.lat, lng: closestPharmacy.lng }
             );
           }
-
 
     } catch (error: any) {
       // 404 hatası artık veri yok demek, kullanıcıya bunu söyleyebiliriz
@@ -541,7 +585,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       const favTag = favTagInput || null;
       try {
           const response = await axios.post(
-              `${process.env.REACT_APP_BACKEND_API_URL}/api/users/favorites/`,
+              `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/users/favorites/`,
               { name: favName, address: address, latitude: lat, longitude: lng, tag: favTag },
               { headers: { 'Authorization': `Token ${token}` } }
           );
@@ -684,14 +728,21 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
 
   useEffect(() => {
     if (!source || !destination || !mapRef.current) return;
-    const mapInstance = mapRef.current;
+    // const mapInstance = mapRef.current; // Not used directly
 
+    // --- Bu kısım gereksiz, çünkü getRoute zaten önceki katmanı siliyor --- 
+    /*
     if (prevRouteLayerRef.current && mapInstance.hasLayer(prevRouteLayerRef.current)) {
       mapInstance.removeLayer(prevRouteLayerRef.current);
     }
-    prevSourceRef.current = source;
-    prevDestRef.current = destination;
+    */
+    // ---------------------------------------------------------------------
+    
+    // Bu ref'ler bu effect içinde kullanılmıyor
+    // prevSourceRef.current = source;
+    // prevDestRef.current = destination;
 
+    console.log("[useEffect Source/Dest Change] Triggering getRoute"); // Log eklendi
     getRoute(source, destination);
 
   }, [source, destination, mapRef, transportMode, departureTime]); // dependencies
@@ -699,6 +750,10 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   const getRoute = async (start: Coordinate, end: Coordinate) => {
       console.log(`[getRoute] Fetching route from ${start.lat},${start.lng} to ${end.lat},${end.lng} via ${transportMode}`);
       const token = localStorage.getItem('token');
+      // Add detailed logging
+      console.log(`[getRoute] Token from localStorage: ${token ? 'Found' : 'Not Found'}`);
+      console.log(`[getRoute] mapRef.current available: ${mapRef.current ? 'Yes' : 'No'}`);
+      // -------------      
       if (!token || !mapRef.current) {
           console.error("[getRoute] Token or Map not available.");
           return;
@@ -714,8 +769,8 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
               requestData.departure_time = departureTime;
           }
           const endpoint = transportMode === 'transit'
-              ? `${process.env.REACT_APP_BACKEND_API_URL}/api/directions/transit/`
-              : `${process.env.REACT_APP_BACKEND_API_URL}/api/directions/route/`;
+              ? `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/directions/transit/`
+              : `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/directions/route/`;
 
           const response = await axios.post<RouteResponse>(
               endpoint,
@@ -817,6 +872,164 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
     addMarker(lat, lng, false, address);
   };
 
+  // Updated clearMarkers function to accept a ref
+  const clearMarkers = (markerRef: React.MutableRefObject<L.LayerGroup | null>) => {
+    if (markerRef.current && mapRef.current) {
+        mapRef.current.removeLayer(markerRef.current); 
+        markerRef.current = null;
+    }
+  };
+
+  // Updated addPoiMarkers to accept a ref and data
+  const addMarkersToLayer = (points: PointOfInterest[], icon: L.Icon, titleKey: keyof PointOfInterest = 'name'): L.LayerGroup | null => {
+    if (!mapRef.current) {
+      console.error('[addMarkersToLayer] Error: Map is not initialized.');
+      return null;
+    }
+    console.log(`[addMarkersToLayer] Adding ${points.length} markers.`);
+
+    const markers: L.Marker[] = [];
+    points.forEach((point, index) => {
+      try {
+        let title = (point[titleKey] as string) || point.name || 'Location';
+        const marker = L.marker([point.lat, point.lng], {
+          icon: icon,
+          title: title
+        });
+
+        let popupContent = `<div><strong>${title}</strong>`;
+        const address = point.address || '';
+        if (address) popupContent += `<p>${address}</p>`;
+        // Add other relevant properties to popup if needed
+        
+        // --- Rota Oluştur Butonu Eklendi (WiFi/Bisiklet için) --- 
+        popupContent += `<div><button 
+          class="popup-directions-button" 
+          style="margin-top: 5px;" /* Üstten küçük bir boşluk ekleyelim */
+          data-lat="${point.lat}" 
+          data-lng="${point.lng}" 
+          data-address="${encodeURIComponent(address)}" // Adresi encode et (boş olabilir)
+        >
+          Get Directions Here
+        </button></div>`;
+        // ---------------------------------------------------------
+
+        popupContent += `</div>`;
+        marker.bindPopup(popupContent);
+
+        // --- Yeni Event Listener Ekleme (WiFi/Bisiklet için) --- 
+        addPopupEventListener(marker, handleSetPharmacyAsDestination); // Aynı handler'ı kullanabiliriz
+        // -----------------------------------------------------
+        
+        markers.push(marker);
+      } catch (error) {
+        console.error(`[addMarkersToLayer] Error processing point ${index}:`, point, error);
+      }
+    });
+
+    if (markers.length > 0) {
+        const layerGroup = L.layerGroup(markers);
+        return layerGroup;
+    }
+    return null;
+  };
+
+  // Fetch functions for WiFi and Bicycle points
+  const fetchWifiPoints = async () => {
+    setLoadingWifi(true);
+    try {
+      const token = localStorage.getItem('token'); // Add token if required by backend
+      const response = await axios.get<WiFiPoint[]>(`${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/wifi-points/`, {
+        headers: token ? { 'Authorization': `Token ${token}` } : {}
+      });
+      // Map backend data to PointOfInterest structure
+      const points = response.data.map(item => ({
+          id: item.id,
+          name: item.name,
+          lat: item.latitude,
+          lng: item.longitude,
+          // address: `Station ID: ${item.global_id}`, // KALDIRILDI
+          // Sadece PointOfInterest interface'indeki alanları kullan
+      }));
+      setWifiPoints(points);
+      const layerGroup = addMarkersToLayer(points, wifiIcon, 'name'); // addMarkersToLayer çağrısı güncellendi
+      if (layerGroup && mapRef.current) {
+        wifiMarkersRef.current = layerGroup.addTo(mapRef.current);
+      }
+    } catch (error) {
+      console.error("Error fetching WiFi points:", error);
+      toast.error("Failed to load WiFi points.");
+    } finally {
+      setLoadingWifi(false);
+    }
+  };
+
+  const fetchBicycleStations = async () => {
+    setLoadingBicycle(true);
+    try {
+      const token = localStorage.getItem('token'); // Add token if required by backend
+      const response = await axios.get<BicyclePoint[]>(`${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/bicycle-points/`, {
+        headers: token ? { 'Authorization': `Token ${token}` } : {}
+      });
+      // Map backend data to PointOfInterest structure
+      const points = response.data.map(item => ({
+          id: item.id,
+          name: item.name,
+          lat: item.latitude,
+          lng: item.longitude,
+          // address: `Station ID: ${item.global_id}`, // KALDIRILDI
+          // Sadece PointOfInterest interface'indeki alanları kullan
+      }));
+      setBicyclePoints(points);
+      const layerGroup = addMarkersToLayer(points, bicycleIcon, 'name'); // addMarkersToLayer çağrısı güncellendi
+      if (layerGroup && mapRef.current) {
+        bicycleMarkersRef.current = layerGroup.addTo(mapRef.current);
+      }
+    } catch (error) {
+      console.error("Error fetching Bicycle stations:", error);
+      toast.error("Failed to load Bicycle stations.");
+    } finally {
+      setLoadingBicycle(false);
+    }
+  };
+
+  // Toggle functions for layers
+  const toggleWifiLayer = () => {
+    const newState = !showWifi;
+    setShowWifi(newState);
+    if (newState) {
+      if (wifiPoints.length === 0 && !loadingWifi) {
+        fetchWifiPoints();
+      } else if (wifiPoints.length > 0 && !wifiMarkersRef.current && mapRef.current) {
+        // Data exists but layer not on map, add it
+        const layerGroup = addMarkersToLayer(wifiPoints, wifiIcon, 'name');
+        if (layerGroup) {
+             wifiMarkersRef.current = layerGroup.addTo(mapRef.current);
+        }
+      }
+    } else {
+      clearMarkers(wifiMarkersRef);
+    }
+  };
+
+  const toggleBicycleLayer = () => {
+    const newState = !showBicycle;
+    setShowBicycle(newState);
+    if (newState) {
+      if (bicyclePoints.length === 0 && !loadingBicycle) {
+        fetchBicycleStations();
+      } else if (bicyclePoints.length > 0 && !bicycleMarkersRef.current && mapRef.current) {
+        // Data exists but layer not on map, add it
+        const layerGroup = addMarkersToLayer(bicyclePoints, bicycleIcon, 'name');
+        if (layerGroup) {
+            bicycleMarkersRef.current = layerGroup.addTo(mapRef.current);
+        }
+      }
+    } else {
+      clearMarkers(bicycleMarkersRef);
+    }
+  };
+
   return (
     <div className="map-container">
       <div className="search-container">
@@ -893,7 +1106,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         </div>
         <div className="point-of-interest-buttons">
           <button onClick={fetchPharmacies} className="poi-button">
-            Show Duty Pharmacies
+            <img src={pharmacyIconUrl} alt="Pharmacy" width="20" height="20"/> Duty Pharmacies
           </button>
         </div>
         
@@ -904,11 +1117,6 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       </div>
       
       <div className="bottom-right-controls">
-        {map && <MapStylesControl 
-                  map={map} 
-                  isOpen={openControl === 'styles'} 
-                  onToggle={() => setOpenControl(openControl === 'styles' ? null : 'styles')} 
-                />}
         <HamburgerMenu 
           isLoggedIn={isLoggedIn} 
           onLogout={onLogout} 
@@ -916,6 +1124,21 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
           onToggle={() => setOpenControl(openControl === 'menu' ? null : 'menu')}
           openDirection="up"
         />
+        <div className="vertical-controls"> 
+          {map && <MapStylesControl 
+                    map={map} 
+                    isOpen={openControl === 'styles'} 
+                    onToggle={() => setOpenControl(openControl === 'styles' ? null : 'styles')} 
+                  />}
+          <div className="layer-toggle-buttons">
+            <button onClick={toggleWifiLayer} className={`poi-toggle-button layer-toggle-btn ${showWifi ? 'active' : ''} ${loadingWifi ? 'loading' : ''}`} title="Toggle WiFi Hotspots" disabled={loadingWifi}>
+              <img src={wifiIconUrl} alt="WiFi" width="20" height="20"/>
+            </button>
+            <button onClick={toggleBicycleLayer} className={`poi-toggle-button layer-toggle-btn ${showBicycle ? 'active' : ''} ${loadingBicycle ? 'loading' : ''}`} title="Toggle Bicycle Stations" disabled={loadingBicycle}>
+              <img src={bicycleIconUrl} alt="Bicycle" width="20" height="20"/>
+            </button>
+          </div>
+        </div>
       </div>
       
       <div id="map" style={{ height: '100%', width: '100%' }} />

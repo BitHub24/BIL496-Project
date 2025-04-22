@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import './RoadPreferencesComponent.css';
 
@@ -53,34 +53,42 @@ const RoadPreferencesComponent: React.FC = () => {
   }, []);
   
   // Fetch user's preferred and avoided roads
-  const fetchUserPreferences = async () => {
+  const fetchUserPreferences = useCallback(async () => {
+    const token = localStorage.getItem("token");
     try {
       const preferredResponse = await axios.get(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/preferences/preferred/`
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/preferences/preferred/`,
+        {
+          headers: { Authorization: `Token ${token}` },
+        }
       );
       setPreferredRoads(preferredResponse.data as UserPreference[]);
       
       const avoidedResponse = await axios.get(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/preferences/avoided/`
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/preferences/avoided/`,
+        {
+          headers: { Authorization: `Token ${token}` },
+        }
       );
       setAvoidedRoads(avoidedResponse.data as UserPreference[]);
     } catch (error) {
       console.error('Error fetching user preferences:', error);
     }
-  };
+  }, []);
   
   // Fetch user's preference profiles
-  const fetchProfiles = async () => {
+  const fetchProfiles = useCallback(async () => {
+    const token = localStorage.getItem("token");
     try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/profiles/`
-      );
+      const response = await axios.get(`${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/profiles/`,
+       { headers: { Authorization: `Token ${token}` },
+      });
       setProfiles(response.data as PreferenceProfile[]);
       
       // Get default profile
-      const defaultResponse = await axios.get(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/profiles/default/`
-      );
+      const defaultResponse = await axios.get(`${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/profiles/default/`,
+       { headers: { Authorization: `Token ${token}` },
+      });
       const defaultProfile = defaultResponse.data as PreferenceProfile | null;
       setSelectedProfile(defaultProfile);
       if (defaultProfile) {
@@ -90,7 +98,7 @@ const RoadPreferencesComponent: React.FC = () => {
     } catch (error) {
       console.error('Error fetching profiles:', error);
     }
-  };
+  }, []);
   
   // Search for roads
   const searchRoads = async () => {
@@ -99,7 +107,7 @@ const RoadPreferencesComponent: React.FC = () => {
     setIsSearching(true);
     try {
       const response = await axios.get(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/road-segments/search/`,
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/road-segments/search/`,
         { params: { q: searchQuery } }
       );
       setSearchResults(response.data as RoadSegment[]);
@@ -116,7 +124,7 @@ const RoadPreferencesComponent: React.FC = () => {
     
     try {
       const response = await axios.post(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/preferences/`,
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/preferences/`,
         {
           road_segment: selectedRoad.id,
           preference_type: preferenceType,
@@ -145,7 +153,7 @@ const RoadPreferencesComponent: React.FC = () => {
   const removePreference = async (preferenceId: number, preferenceType: 'prefer' | 'avoid') => {
     try {
       await axios.delete(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/preferences/${preferenceId}/`
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/preferences/${preferenceId}/`
       );
       
       // Update local state
@@ -165,7 +173,7 @@ const RoadPreferencesComponent: React.FC = () => {
     
     try {
       const response = await axios.post(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/profiles/`,
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/profiles/`,
         {
           name: newProfileName,
           description: newProfileDescription,
@@ -191,7 +199,7 @@ const RoadPreferencesComponent: React.FC = () => {
   const setAsDefault = async (profileId: number) => {
     try {
       const response = await axios.post(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/profiles/${profileId}/set_default/`
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/profiles/${profileId}/set_default/`
       );
       
       // Update local state
@@ -212,7 +220,7 @@ const RoadPreferencesComponent: React.FC = () => {
     
     try {
       const response = await axios.patch(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/profiles/${selectedProfile.id}/`,
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/profiles/${selectedProfile.id}/`,
         {
           prefer_multiplier: preferMultiplier,
           avoid_multiplier: avoidMultiplier

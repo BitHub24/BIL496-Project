@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import './SettingsPage.css';
@@ -102,127 +102,100 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
   const [isHamburgerOpen, setIsHamburgerOpen] = useState(false);
 
   // Fetch user data (address state update kaldırıldı)
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          console.error('Auth token not found for fetching user data.');
-          toast.error('Authentication error. Please log in again.');
-          // Belki login sayfasına yönlendirme eklenebilir
-          return;
+  const fetchUserProfile = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/users/profile/`,
+        {
+          headers: { Authorization: `Token ${token}` },
         }
-        
-        // Yanıt tipi güncellendi
-        const response = await axios.get<UserProfileData>(
-          `${process.env.REACT_APP_BACKEND_API_URL}/api/users/profile/`,
-          { headers: { 'Authorization': `Token ${token}` } }
-        );
-        console.log('[API Response] User Data:', response.data);
-        
-        if (response.data) {
-          const userData = response.data;
-          setUsername(userData.username);
-          setEmail(userData.email);
-          setFirstName(userData.first_name || ''); // Boş gelirse '' ata
-          setLastName(userData.last_name || '');   // Boş gelirse '' ata
-          setPhoneNumber(userData.user_profile?.phone_number || ''); // Opsiyonel zincirleme ve boş kontrolü
-          console.log('[State Update] Profile data set.');
-        } else {
-          console.error('API response format is incorrect or missing data');
-          toast.error('Failed to parse user profile data');
-        }
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-        toast.error('Failed to load user profile');
+      );
+      console.log('[API Response] User Data:', response.data);
+      
+      if (response.data) {
+        const userData = response.data;
+        setUsername(userData.username);
+        setEmail(userData.email);
+        setFirstName(userData.first_name || ''); // Boş gelirse '' ata
+        setLastName(userData.last_name || '');   // Boş gelirse '' ata
+        setPhoneNumber(userData.user_profile?.phone_number || ''); // Opsiyonel zincirleme ve boş kontrolü
+        console.log('[State Update] Profile data set.');
+      } else {
+        console.error('API response format is incorrect or missing data');
+        toast.error('Failed to parse user profile data');
       }
-    };
-
-    fetchUserData();
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      toast.error('Failed to load user profile');
+    }
   }, []);
 
   // Fetch road preferences
-  useEffect(() => {
-    const fetchRoadPreferences = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) return; // Basic token check
-        const headers = { 'Authorization': `Token ${token}` }; // Headers
+  const fetchPreferences = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    try {
+      const preferredResponse = await axios.get(
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/preferences/preferred/`,
+        {
+          headers: { Authorization: `Token ${token}` },
+        }
+      );
+      setPreferredRoads(preferredResponse.data as RoadPreference[]);
 
-        const preferredResponse = await axios.get(
-          `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/preferences/preferred/`,
-          { headers } // Pass headers
-        );
-        setPreferredRoads(preferredResponse.data as RoadPreference[]);
-
-        const avoidedResponse = await axios.get(
-          `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/preferences/avoided/`,
-          { headers } // Pass headers
-        );
-        setAvoidedRoads(avoidedResponse.data as RoadPreference[]);
-      } catch (error) {
-        console.error('Error fetching road preferences:', error);
-        toast.error('Failed to load road preferences');
-      }
-    };
-
-    fetchRoadPreferences();
+      const avoidedResponse = await axios.get(
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/preferences/avoided/`,
+        {
+          headers: { Authorization: `Token ${token}` },
+        }
+      );
+      setAvoidedRoads(avoidedResponse.data as RoadPreference[]);
+    } catch (error) {
+      console.error('Error fetching road preferences:', error);
+      toast.error('Failed to load road preferences');
+    }
   }, []);
 
   // Fetch preference profiles
-  useEffect(() => {
-    const fetchProfiles = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-        const headers = { 'Authorization': `Token ${token}` };
+  const fetchProfiles = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/profiles/`,
+        { headers: { Authorization: `Token ${token}` } }
+      );
+      setProfiles(response.data as PreferenceProfile[]);
 
-        const response = await axios.get(
-          `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/profiles/`,
-          { headers } // Pass headers
-        );
-        setProfiles(response.data as PreferenceProfile[]);
-
-        // Get default profile
-        const defaultResponse = await axios.get(
-          `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/profiles/default/`,
-          { headers } // Pass headers
-        );
-        const defaultProfile = defaultResponse.data as PreferenceProfile | null;
-        setSelectedProfile(defaultProfile);
-        if (defaultProfile) {
-          setPreferMultiplier(defaultProfile.prefer_multiplier);
-          setAvoidMultiplier(defaultProfile.avoid_multiplier);
-        }
-      } catch (error) {
-        console.error('Error fetching profiles:', error);
-        toast.error('Failed to load preference profiles');
+      // Get default profile
+      const defaultResponse = await axios.get(
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/profiles/default/`,
+        { headers: { Authorization: `Token ${token}` } }
+      );
+      const defaultProfile = defaultResponse.data as PreferenceProfile | null;
+      setSelectedProfile(defaultProfile);
+      if (defaultProfile) {
+        setPreferMultiplier(defaultProfile.prefer_multiplier);
+        setAvoidMultiplier(defaultProfile.avoid_multiplier);
       }
-    };
-
-    fetchProfiles();
+    } catch (error) {
+      console.error('Error fetching profiles:', error);
+      toast.error('Failed to load preference profiles');
+    }
   }, []);
 
   // Fetch saved locations (URL ve state güncellendi -> FavoriteLocation)
-  useEffect(() => {
-    const fetchFavoriteLocations = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-        const headers = { 'Authorization': `Token ${token}` };
-
-        const response = await axios.get(
-          `${process.env.REACT_APP_BACKEND_API_URL}/api/users/favorites/`,
-          { headers }
-        );
-        setFavoriteLocations(response.data as FavoriteLocation[]);
-      } catch (error) {
-        console.error('Error fetching favorite locations:', error);
-        toast.error('Failed to load favorite locations');
-      }
-    };
-
-    fetchFavoriteLocations();
+  const fetchFavorites = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/users/favorites/`,
+        { headers: { Authorization: `Token ${token}` } }
+      );
+      setFavoriteLocations(response.data as FavoriteLocation[]);
+    } catch (error) {
+      console.error('Error fetching favorite locations:', error);
+      toast.error('Failed to load favorite locations');
+    }
   }, []);
 
   // Update password
@@ -234,12 +207,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
       return;
     }
 
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     if (!token) return;
-    const headers = { 'Authorization': `Token ${token}` };
+    const headers = { Authorization: `Token ${token}` };
 
     try {
-      await axios.post(`${process.env.REACT_APP_BACKEND_API_URL}/api/users/change-password/`, 
+      await axios.post(`${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/users/change-password/`, 
         {
           current_password: currentPassword,
           new_password: newPassword
@@ -258,16 +231,39 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
   };
 
   // Search for roads
-  const searchRoads = async () => {
+  const handleSearchChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const query = event.target.value;
+    setSearchQuery(query);
+    if (query.length > 2) {
+      try {
+        const response = await axios.get(
+          `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/road-segments/search/`,
+          {
+            params: { query },
+            headers: { Authorization: `Token ${localStorage.getItem("token")}` },
+          }
+        );
+        setSearchResults(response.data as RoadSegment[]);
+      } catch (error) {
+        console.error('Error searching roads:', error);
+        toast.error('Failed to search for roads');
+      }
+    }
+  };
+
+  // Separate function for button click
+  const handleSearchClick = async () => {
     if (searchQuery.length < 3) {
       toast.error('Please enter at least 3 characters');
       return;
     }
-
     try {
       const response = await axios.get(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/road-segments/search/`,
-        { params: { q: searchQuery } }
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/road-segments/search/`,
+        {
+          params: { query: searchQuery }, // Use searchQuery directly
+          headers: { Authorization: `Token ${localStorage.getItem("token")}` },
+        }
       );
       setSearchResults(response.data as RoadSegment[]);
     } catch (error) {
@@ -276,42 +272,35 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
     }
   };
 
-  // Add road preference
-  const addPreference = async (preferenceType: 'prefer' | 'avoid') => {
-    if (!selectedRoad) {
-      toast.error('Please select a road first');
-      return;
-    }
-
-    const token = localStorage.getItem('token');
+  // Add road preference - Ensure type is 'preferred' | 'avoided'
+  const handleAddPreference = async (roadSegmentId: number, type: "preferred" | "avoided") => {
+    const token = localStorage.getItem("token");
     if (!token) return;
-    const headers = { 'Authorization': `Token ${token}` };
+    const headers = { Authorization: `Token ${token}` };
 
     try {
       const response = await axios.post(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/preferences/`,
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/preferences/`,
         {
-          road_segment: selectedRoad.id,
-          preference_type: preferenceType,
+          road_segment: roadSegmentId,
+          preference_type: type,
           reason: preferenceReason
         },
         { headers } // Pass headers
       );
 
       // Update local state
-      if (preferenceType === 'prefer') {
+      if (type === 'preferred') {
         setPreferredRoads([...preferredRoads, response.data as RoadPreference]);
       } else {
         setAvoidedRoads([...avoidedRoads, response.data as RoadPreference]);
       }
 
-      // Clear selection
+      setPreferenceReason("");
       setSelectedRoad(null);
-      setPreferenceReason('');
-      setSearchQuery('');
       setSearchResults([]);
       
-      toast.success(`Road added to ${preferenceType === 'prefer' ? 'preferred' : 'avoided'} roads`);
+      toast.success(`Road added to ${type} roads`);
     } catch (error) {
       console.error('Error adding preference:', error);
       toast.error('Failed to add road preference');
@@ -319,22 +308,21 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
   };
 
   // Remove road preference
-  const removePreference = async (preferenceId: number, preferenceType: 'prefer' | 'avoid') => {
-    const token = localStorage.getItem('token');
+  const handleDeletePreference = async (preferenceId: number) => {
+    const token = localStorage.getItem("token");
     if (!token) return;
-    const headers = { 'Authorization': `Token ${token}` };
+    const headers = { Authorization: `Token ${token}` };
     try {
       await axios.delete(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/preferences/${preferenceId}/`,
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/preferences/${preferenceId}/`,
         { headers } // Pass headers
       );
 
       // Update local state
-      if (preferenceType === 'prefer') {
-        setPreferredRoads(preferredRoads.filter(road => road.id !== preferenceId));
-      } else {
-        setAvoidedRoads(avoidedRoads.filter(road => road.id !== preferenceId));
-      }
+      const updatedPreferredRoads = preferredRoads.filter(road => road.id !== preferenceId);
+      const updatedAvoidedRoads = avoidedRoads.filter(road => road.id !== preferenceId);
+      setPreferredRoads(updatedPreferredRoads);
+      setAvoidedRoads(updatedAvoidedRoads);
       
       toast.success('Road preference removed');
     } catch (error) {
@@ -344,19 +332,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
   };
 
   // Create new profile
-  const createProfile = async () => {
-    if (!newProfileName) {
-      toast.error('Please enter a profile name');
-      return;
-    }
-
-    const token = localStorage.getItem('token');
+  const handleSaveProfile = async () => {
+    const token = localStorage.getItem("token");
     if (!token) return;
-    const headers = { 'Authorization': `Token ${token}` };
+    const headers = { Authorization: `Token ${token}` };
 
     try {
       const response = await axios.post(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/profiles/`,
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/profiles/`,
         {
           name: newProfileName,
           description: newProfileDescription,
@@ -383,13 +366,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
   };
 
   // Set profile as default
-  const setAsDefault = async (profileId: number) => {
-    const token = localStorage.getItem('token');
+  const handleSetDefaultProfile = async (profileId: number) => {
+    const token = localStorage.getItem("token");
     if (!token) return;
-    const headers = { 'Authorization': `Token ${token}` };
+    const headers = { Authorization: `Token ${token}` };
     try {
       const response = await axios.post(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/profiles/${profileId}/set_default/`,
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/profiles/${profileId}/set_default/`,
         {}, // Empty data for POST often needed
         { headers } // Pass headers
       );
@@ -410,19 +393,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
   };
 
   // Update profile multipliers
-  const updateProfileMultipliers = async () => {
+  const handleUpdateProfileMultipliers = async () => {
     if (!selectedProfile) {
       toast.error('Please select a profile first');
       return;
     }
 
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     if (!token) return;
-    const headers = { 'Authorization': `Token ${token}` };
+    const headers = { Authorization: `Token ${token}` };
 
     try {
       const response = await axios.patch(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/routing/profiles/${selectedProfile.id}/`,
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/profiles/${selectedProfile.id}/`,
         {
           prefer_multiplier: preferMultiplier,
           avoid_multiplier: avoidMultiplier
@@ -445,14 +428,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
   };
 
   // Delete saved location
-  const deleteFavoriteLocation = async (locationId: number) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-      const headers = { 'Authorization': `Token ${token}` };
+  const handleDeleteFavorite = async (locationId: number) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    const headers = { Authorization: `Token ${token}` };
 
+    try {
       await axios.delete(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/users/favorites/${locationId}/`,
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/users/favorites/${locationId}/`,
         { headers }
       );
       setFavoriteLocations(favoriteLocations.filter(loc => loc.id !== locationId));
@@ -494,12 +477,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       if (!token) {
         toast.error('Authentication error. Please log in.');
         return;
       }
-      const headers = { 'Authorization': `Token ${token}` };
+      const headers = { Authorization: `Token ${token}` };
       const profileData = {
         first_name: firstName,
         last_name: lastName,
@@ -516,7 +499,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
 
       // Hem User hem UserProfile güncellemesi için UserDetailView'a (PUT/PATCH /api/users/user/)
       const response = await axios.patch(
-        `${process.env.REACT_APP_BACKEND_API_URL}/api/users/user/`,
+        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/users/user/`,
         { ...userData, user_profile: profileData.user_profile, first_name: firstName, last_name: lastName }, // User ve UserProfile verilerini birleştir
         { headers }
       );
@@ -690,12 +673,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={handleSearchChange}
                   placeholder="Enter road name (min 3 characters)"
                   className="search-input"
                 />
                 <button 
-                  onClick={searchRoads} 
+                  onClick={handleSearchClick}
                   disabled={searchQuery.length < 3}
                   className="search-button"
                 >
@@ -732,13 +715,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
                   />
                   <div className="preference-buttons">
                     <button 
-                      onClick={() => addPreference('prefer')}
+                      onClick={() => handleAddPreference(selectedRoad.id, 'preferred')}
                       className="prefer-button"
                     >
                       Prefer This Road
                     </button>
                     <button 
-                      onClick={() => addPreference('avoid')}
+                      onClick={() => handleAddPreference(selectedRoad.id, 'avoided')}
                       className="avoid-button"
                     >
                       Avoid This Road
@@ -762,7 +745,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
                           {pref.reason && <span className="reason">{pref.reason}</span>}
                         </div>
                         <button 
-                          onClick={() => removePreference(pref.id, 'prefer')}
+                          onClick={() => handleDeletePreference(pref.id)}
                           className="remove-button"
                         >
                           Remove
@@ -786,7 +769,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
                           {pref.reason && <span className="reason">{pref.reason}</span>}
                         </div>
                         <button 
-                          onClick={() => removePreference(pref.id, 'avoid')}
+                          onClick={() => handleDeletePreference(pref.id)}
                           className="remove-button"
                         >
                           Remove
@@ -822,7 +805,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
-                              setAsDefault(profile.id);
+                              handleSetDefaultProfile(profile.id);
                             }}
                             className="default-button"
                           >
@@ -873,7 +856,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
                     </div>
                     
                     <button 
-                      onClick={updateProfileMultipliers}
+                      onClick={handleUpdateProfileMultipliers}
                       className="update-button"
                     >
                       Update Multipliers
@@ -901,7 +884,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
                     className="profile-description-input"
                   />
                   <button 
-                    onClick={createProfile}
+                    onClick={handleSaveProfile}
                     disabled={!newProfileName}
                     className="create-button"
                   >
@@ -939,7 +922,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
                         Use
                       </button>
                       <button 
-                        onClick={() => deleteFavoriteLocation(location.id)}
+                        onClick={() => handleDeleteFavorite(location.id)}
                         className="delete-location-btn"
                       >
                         Delete

@@ -181,7 +181,7 @@ const Login = () => {
   const [success] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL;
+  const BACKEND_API_URL = import.meta.env.VITE_REACT_APP_BACKEND_API_URL;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -203,9 +203,26 @@ const Login = () => {
 
       // Parse the response
       const data = await response.json();
-      console.log(data);
-      localStorage.setItem("googleApiKey", data.google_api_key);
-      localStorage.setItem("hereApiKey", data.here_api_key);
+      console.log("Login response data:", data); // Log the response to check its structure
+
+      // Store API keys AND the authentication token
+      if (data.token) { 
+        localStorage.setItem("token", data.token); // Store the token
+        console.log("Token stored in localStorage");
+      } else {
+        console.error("Token not found in login response!");
+        throw new Error("Login successful, but token missing in response."); // Throw error if token is missing
+      }
+
+      if (data.google_api_key) {
+        localStorage.setItem("googleApiKey", data.google_api_key);
+      }
+      if (data.here_api_key) {
+        localStorage.setItem("hereApiKey", data.here_api_key);
+      }
+
+      // Set login state (assuming you have a global state or context)
+      // setIsLoggedIn(true); // Example - replace with your actual state update
 
       // Redirect to the map page
       navigate("/map");
