@@ -55,10 +55,12 @@ INSTALLED_APPS = [
     'pharmacy',
     'users',  # Yeni eklenen kullanıcı yönetimi uygulaması
     'geocoding',  # HERE API için geocoding uygulaması
+    'routing', # Rota ve tercih yönetimi için
     'django_crontab',  # Cronjob yönetimi için
     'traffic_data',  # Trafik verilerini toplama modülü
     'wifi_points',  # WiFi noktaları uygulaması
     'bicycle_points',  # Bisiklet istasyonları uygulaması
+    'background_task', # Arka plan görevleri için eklendi
 ]
 
 MIDDLEWARE = [
@@ -136,7 +138,7 @@ LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'UTC'
 
-USE_I18N = False
+USE_I18N = True
 
 USE_TZ = True
 
@@ -144,7 +146,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = '/static/'
+STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
@@ -157,6 +159,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://localhost:3003", # Frontend'in çalıştığı yeni port
     "https://frontend-app-1094631205138.us-central1.run.app",
 ]
 
@@ -164,7 +167,7 @@ CORS_ALLOWED_ORIGINS = [
 OSRM_SERVER_URL = "http://router.project-osrm.org"
 
 # HERE API ayarları
-HERE_API_KEY = os.environ.get('HERE_API_KEY', '')
+HERE_API_KEY = os.getenv('HERE_API_KEY', None)
 HERE_API_BASE_URL = "https://geocode.search.hereapi.com/v1/geocode"
 #Google Maps API
 GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')
@@ -182,10 +185,10 @@ REST_FRAMEWORK = {
 
 # Crontab ayarları
 CRONJOBS = [
-    # Nöbetçi eczane verileri için günlük görev
-    ('0 6 * * *', 'django.core.management.call_command', ['fetch_duty_pharmacies']),
-    # Trafik verilerini toplama görevi (15 dakikada bir)
-    ('*/15 * * * *', 'traffic_data.cron.collect_traffic_data_cron'),
+    ('*/15 * * * *', # Her 15 dakikada bir
+     'traffic_data.management.commands.collect_traffic.Command', # Çalıştırılacak komutun Python yolu
+     '>> /Users/actk/Logs/traffic_cron.log' # Log dosyası (yolu kendine göre ayarla)
+    )
 ]
 
 # Crontab komut öneki (virtual environment'ı aktifleştirmek için)
@@ -205,3 +208,40 @@ EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@bithubmaps.com')
+
+# Loglama Ayarları (İsteğe bağlı, cron çıktısı için)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'cron_log_file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': '/Users/actk/Logs/traffic_cron.log', # Yukarıdaki yolla aynı olmalı
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django_crontab.crontab': {
+            'handlers': ['cron_log_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # Kendi komutunuzun loglarını da buraya yönlendirebilirsiniz
+        'traffic_data.management.commands.collect_traffic': {
+            'handlers': ['cron_log_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+         'traffic_data.collector': { # Collector logları için
+            'handlers': ['cron_log_file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+    'formatters': {
+        'verbose': {
+            'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+        },
+    },
+}
