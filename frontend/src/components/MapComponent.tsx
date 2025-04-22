@@ -5,9 +5,10 @@ import 'leaflet/dist/leaflet.css';
 import axios from 'axios';
 import './MapComponent.css';
 import {
-  Coordinate, Pharmacy, PointOfInterest, RouteResponse, GeocodeResponse, SearchBoxRef
+  Coordinate, Pharmacy, PointOfInterest, RouteResponse, GeocodeResponse, SearchBoxRef, FavoriteLocation
 } from '../models/Models';
 import SearchBox from './SearchBox';
+import FavoritesBox from './FavoritesBox';
 import sourceMarkerIcon from '../assets/source-marker.svg';
 import destinationMarkerIcon from '../assets/destination-marker.svg';
 import pharmacyIconUrl from '../assets/eczane.svg';
@@ -104,6 +105,8 @@ const MapComponent: React.FC = () => {
   const destinationSearchRef = useRef<SearchBoxRef>(null);
   const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL;
   const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || '';
+
+  const [favorites, setFavorites] = useState<FavoriteLocation[]>([]);
 
   useEffect(() => {
     // API key kontrolü
@@ -624,77 +627,119 @@ const MapComponent: React.FC = () => {
     }
   };
 
+  // Load favorites from localStorage when component mounts
+  useEffect(() => {
+    const savedFavorites = localStorage.getItem('favorites');
+    if (savedFavorites) {
+      try {
+        setFavorites(JSON.parse(savedFavorites));
+      } catch (error) {
+        console.error('Error parsing favorites from localStorage:', error);
+        localStorage.removeItem('favorites');
+      }
+    }
+  }, []);
+
+  // Save favorites to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('favorites', JSON.stringify(favorites));
+  }, [favorites]);
+
+  // Handler for favorite location select
+  const handleFavoriteSelect = (favorite: FavoriteLocation) => {
+    if (map) {
+      map.setView([favorite.lat, favorite.lng], 15);
+      addMarker(favorite.lat, favorite.lng, true);
+      toast.success(`Navigated to ${favorite.name}!`);
+    }
+  };
+
   return (
     <div className="map-container">
-      <div className="search-container">
-        <div className="search-box-with-button">
-          <SearchBox
-            ref={sourceSearchRef}
-            placeholder="Enter start location"
-            onLocationSelect={(lat, lng) => addMarker(lat, lng, true)}
-          >
-            <button
-              onClick={askForLocation}
-              className="location-button"
-              title="Use my current location"
-              type="button"
+      <div className="map-controls">
+        <div className="search-container">
+          <div className="search-box-container">
+            <div className="search-row">
+              <SearchBox
+                ref={sourceSearchRef}
+                placeholder="Start location"
+                onLocationSelect={(lat, lng) => addMarker(lat, lng, true)}
+              />
+              <button
+                className="location-button"
+                onClick={() => askForLocation()}
+                title="Use your current location"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+                </svg>
+              </button>
+            </div>
+            
+            <div className="search-row">
+              <SearchBox
+                ref={destinationSearchRef}
+                placeholder="Destination"
+                onLocationSelect={(lat, lng) => addMarker(lat, lng, false)}
+              />
+            </div>
+          </div>
+          
+          <div className="point-of-interest-buttons">
+            <button 
+              onClick={() => getRoute(source!, destination!)} 
+              className="route-button"
+              disabled={!source || !destination}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
-                <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z" />
-              </svg>
+              Get Directions
             </button>
-          </SearchBox>
-        </div>
-        <SearchBox
-          ref={destinationSearchRef}
-          placeholder="Enter destination"
-          onLocationSelect={(lat, lng) => addMarker(lat, lng, false)}
-        />
-                <div className="point-of-interest-buttons">
-          <button 
-            onClick={() => getRoute(source!, destination!)} 
-            className="route-button"
-          >
-            Get Directions
-          </button>
-        </div>
+          </div>
 
-        <div className="point-of-interest-buttons">
-          <button 
-            onClick={fetchPharmacies} 
-            className="poi-button"
-            disabled={isLoadingPharmacies}
-          >
-            {isLoadingPharmacies ? (
-              <>
-                <span className="loading-spinner"></span>
-                Loading Pharmacies...
-              </>
-            ) : (
-              'Show Duty Pharmacies'
-            )}
-          </button>
-        </div>
+          <div className="point-of-interest-buttons">
+            <button 
+              onClick={fetchPharmacies} 
+              className="poi-button"
+              disabled={isLoadingPharmacies || !source}
+            >
+              {isLoadingPharmacies ? (
+                <>
+                  <span className="loading-spinner"></span>
+                  Loading Pharmacies...
+                </>
+              ) : (
+                'Show Duty Pharmacies'
+              )}
+            </button>
+          </div>
 
-        <div className="point-of-interest-buttons">
-          <button 
-            onClick={fetchTaxiStations} 
-            className="taxi-button"
-            disabled={isLoadingTaxis}
-          >
-            {isLoadingTaxis ? (
-              <>
-                <span className="loading-spinner"></span>
-                Loading Taxi Stations...
-              </>
-            ) : (
-              'Show Taxi Stations'
-            )}
-          </button>
+          <div className="point-of-interest-buttons">
+            <button 
+              onClick={fetchTaxiStations} 
+              className="taxi-button"
+              disabled={isLoadingTaxis || !source}
+            >
+              {isLoadingTaxis ? (
+                <>
+                  <span className="loading-spinner"></span>
+                  Loading Taxi Stations...
+                </>
+              ) : (
+                'Show Taxi Stations'
+              )}
+            </button>
+          </div>
         </div>
-
+        
+        {/* Favorites Box as a separate container */}
+        <div className="favorites-section">
+          <FavoritesBox 
+            favorites={favorites}
+            onSelectFavorite={handleFavoriteSelect}
+          />
+        </div>
       </div>
-      <div id="map" style={{ height: '500px', width: '100%' }} />
+      
+      <div id="map"></div>
     </div>
   );
 };

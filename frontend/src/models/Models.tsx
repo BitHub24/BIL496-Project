@@ -128,8 +128,16 @@ export interface SearchBoxProps {
   ref: React.Ref<SearchBoxRef>;
   placeholder: string;
   onLocationSelect: (lat: number, lng: number) => void;
-  children?: React.ReactNode;
 }
 export interface SearchBoxRef {
   setQuery: (query: string) => void;
+}
+
+// Favori lokasyonlar için interface
+export interface FavoriteLocation {
+  id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
 }

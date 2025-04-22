@@ -1,8 +1,10 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
-from .models import UserProfile
+from .models import UserProfile, FavoriteLocation
 import uuid
+from django.contrib.auth import authenticate
+from django.core.exceptions import ValidationError
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -118,6 +120,7 @@ class GoogleAuthSerializer(serializers.ModelSerializer):
             # Log the error for debugging
             print(f"Error creating user: {str(e)}")
             raise serializers.ValidationError(f"Failed to create user: {str(e)}")
+
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(required=True)
     password = serializers.CharField(required=True, write_only=True)
@@ -169,3 +172,25 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     
     def validate(self, attrs):
         return attrs 
+
+class FavoriteLocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FavoriteLocation
+        fields = ['id', 'name', 'address', 'latitude', 'longitude', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def create(self, validated_data):
+        # Kullanıcıyı context'ten al
+        user = self.context['request'].user
+        return FavoriteLocation.objects.create(user=user, **validated_data)
+
+    def validate(self, data):
+        # Aynı isimle başka bir favori lokasyon var mı kontrolü yap
+        user = self.context['request'].user
+        name = data.get('name')
+        
+        # Update işlemi değilse (create ise) ve aynı isimde favori varsa hata ver
+        if not self.instance and FavoriteLocation.objects.filter(user=user, name=name).exists():
+            raise serializers.ValidationError({'name': 'Bu isimle zaten bir favori kaydetmişsiniz.'})
+        
+        return data 

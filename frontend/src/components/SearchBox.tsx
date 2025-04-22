@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } f
 import { SearchBoxProps, SearchBoxRef, SearchResult } from '../models/Models';
 import './SearchBox.css';
 
-const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps>(({ placeholder, onLocationSelect, children }, ref) => {
+const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps>(({ placeholder, onLocationSelect }, ref) => {
   const [query, setQueryState] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -92,7 +92,6 @@ const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps>(({ placeholder, onLoc
         className="search-input"
         ref={inputRef}
       />
-      {children}
       {isLoading && <div className="loading-indicator">Searching...</div>}
       {showResults && results.length > 0 && (
         <ul className="search-results">

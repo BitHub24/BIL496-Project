@@ -1,17 +1,19 @@
 from django.shortcuts import render
-from rest_framework import generics, status, permissions
+from rest_framework import generics, status, permissions, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
-from .serializers import GoogleAuthSerializer, RegisterSerializer, UserSerializer, LoginSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer
-from .models import UserProfile
+from .serializers import GoogleAuthSerializer, RegisterSerializer, UserSerializer, LoginSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer, UserDetailSerializer, FavoriteLocationSerializer
+from .models import UserProfile, FavoriteLocation
 from django.conf import settings
 import uuid
 from django.core.mail import send_mail
 from django.utils import timezone
 from datetime import timedelta
+import jwt
+import datetime
 
 # Create your views here.
 
@@ -388,3 +390,28 @@ class PasswordResetVerifyTokenView(APIView):
                     "error": "İşlem sırasında bir hata oluştu.",
                     "valid": False
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class FavoriteLocationsViewSet(viewsets.ModelViewSet):
+    """
+    Kullanıcının favori konumlarını yönetmek için API endpoint'i.
+    
+    list: Tüm favori konumları listeler
+    create: Yeni bir favori konum ekler
+    retrieve: Belirli bir favori konumu getirir
+    update: Favori konumu günceller
+    destroy: Favori konumu siler
+    """
+    serializer_class = FavoriteLocationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        # Sadece kullanıcının kendi favori konumlarını göster
+        return FavoriteLocation.objects.filter(user=self.request.user)
+    
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+    
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response({"message": "Favori konum başarıyla silindi."}, status=status.HTTP_204_NO_CONTENT)

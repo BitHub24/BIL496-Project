@@ -1,5 +1,9 @@
-from django.urls import path
-from .views import GoogleAuthView, RegisterView, LoginView, LogoutView, UserDetailView, UserUpdateView, PasswordResetRequestView, PasswordResetConfirmView, PasswordResetVerifyTokenView
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import GoogleAuthView, RegisterView, LoginView, LogoutView, UserDetailView, UserUpdateView, PasswordResetRequestView, PasswordResetConfirmView, PasswordResetVerifyTokenView, FavoriteLocationsViewSet
+
+router = DefaultRouter()
+router.register(r'favorites', FavoriteLocationsViewSet, basename='favorites')
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
@@ -11,4 +15,5 @@ urlpatterns = [
     path('password-reset/request/', PasswordResetRequestView.as_view(), name='password-reset-request'),
     path('password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     path('password-reset/verify-token/<str:token>/', PasswordResetVerifyTokenView.as_view(), name='password-reset-verify-token'),
+    path('', include(router.urls)),
 ] 
