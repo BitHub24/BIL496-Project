@@ -18,13 +18,16 @@ import pharmacyIconUrl from '../assets/eczane.svg';
 import bicycleIconUrl from '../assets/bicycle.png';
 import wifiIconUrl from '../assets/wifi.png';
 import HamburgerMenu from './HamburgerMenu';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';  // Import image for iconUrl
+import markerIconRetina from 'leaflet/dist/images/marker-icon-2x.png';  // Import image for iconRetinaUrl
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';  // Import image for shadowUrl
 
 // Fix Leaflet default icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
-  iconUrl: require('leaflet/dist/images/marker-icon.png'),
-  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+  iconRetinaUrl: markerIconRetina,  // Use imported image URL for Retina display
+  iconUrl: markerIcon,  // Use imported image URL for default icon
+  shadowUrl: markerShadow,  // Use imported image URL for shadow
 });
 
 // Custom icons for source and destination
@@ -33,7 +36,7 @@ const sourceIcon = new L.Icon({
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
-  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+  shadowUrl: markerShadow, 
   shadowSize: [41, 41]
 });
 
@@ -42,7 +45,7 @@ const destinationIcon = new L.Icon({
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
-  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+  shadowUrl: markerShadow, 
   shadowSize: [41, 41]
 });
 
