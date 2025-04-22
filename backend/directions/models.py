@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 
 class UserProfile(models.Model):
     """Kullanıcı profil modeli"""
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='directions_profile')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

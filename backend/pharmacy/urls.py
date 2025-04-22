@@ -1,7 +1,8 @@
 from django.urls import path
-from .views import DutyPharmacyView, NearestPharmacyView
+from .views import DutyPharmacyView, NearestPharmacyView, CheckAndFetchTodayPharmaciesView
 
 urlpatterns = [
-    path('api/pharmacies', DutyPharmacyView.as_view(), name='duty_pharmacies'),
-    path('api/pharmacies/nearest', NearestPharmacyView.as_view(), name='nearest_pharmacies'),
+    path('check-today/', CheckAndFetchTodayPharmaciesView.as_view(), name='check_today_pharmacies'),
+    path('', DutyPharmacyView.as_view(), name='duty_pharmacies'),
+    path('nearest/', NearestPharmacyView.as_view(), name='nearest_pharmacies'),
 ] 

@@ -1,7 +1,9 @@
-from django.urls import path
-from . import views
+from django.contrib import admin
+from django.urls import path, include
 
 urlpatterns = [
-    path('api/route', views.calculate_route, name='calculate_route'),
-    path('api/search', views.search_address, name='search_address'),
+    path('admin/', admin.site.urls),
+    path('api/users/', include('users.urls')),
+    path('api/pharmacies/', include('pharmacy.urls')),
+    path('api/traffic/', include('traffic.urls')),
 ] 

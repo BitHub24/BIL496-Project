@@ -1,17 +1,25 @@
-from django.shortcuts import render
-from rest_framework import generics, status, permissions
+from django.shortcuts import render, get_object_or_404
+from rest_framework import generics, status, permissions, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.models import User
-from .serializers import GoogleAuthSerializer, RegisterSerializer, UserSerializer, LoginSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer
-from .models import UserProfile
+from .serializers import RegisterSerializer, UserSerializer, LoginSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer, FavoriteLocationSerializer, UserProfileSerializer
+from .models import UserProfile, FavoriteLocation
 from django.conf import settings
 import uuid
 from django.core.mail import send_mail
 from django.utils import timezone
 from datetime import timedelta
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.template.loader import render_to_string
+from django.core.mail import EmailMessage
+from django.contrib.auth.tokens import default_token_generator
+from rest_framework.permissions import IsAuthenticated
+
+User = get_user_model()
 
 # Create your views here.
 
@@ -35,26 +43,6 @@ class RegisterView(generics.CreateAPIView):
             'user': user_serializer.data,
             'token': token.key
         }, status=status.HTTP_201_CREATED)
-class GoogleAuthView(generics.CreateAPIView):
-    queryset = User.objects.all()
-    serializer_class = GoogleAuthSerializer
-    permission_classes = [permissions.AllowAny]  # Herkesin erişebilmesi için
-    
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        
-        created = getattr(serializer, '_created', False)
-
-        token, _ = Token.objects.get_or_create(user=user)
-        user_serializer = UserSerializer(user)
-
-        return Response({
-            'user': user_serializer.data,
-            'token': token.key
-        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
-
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]  # Herkesin erişebilmesi için
@@ -97,7 +85,7 @@ class LogoutView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-class UserDetailView(generics.RetrieveAPIView):
+class UserDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = UserSerializer
     
@@ -272,44 +260,22 @@ class PasswordResetConfirmView(APIView):
                         "error": "Şifre en az 8 karakter uzunluğunda olmalıdır."
                     }, status=status.HTTP_400_BAD_REQUEST)
                 
-                # Şifreyi güncelle
-                try:
-                    user.set_password(new_password)
-                    user.save()
-                    
-                    # Token'ı temizle
-                    profile.reset_password_token = None
-                    profile.reset_password_token_created_at = None
-                    profile.save()
-                    
-                    # Başarılı ise tüm oturumları sonlandır (token bazlı oturum yönetimi)
-                    Token.objects.filter(user=user).delete()
-                    
-                    # Başarılı şifre değişikliği sonrası bilgilendirme e-postası gönder
-                    try:
-                        send_mail(
-                            'Şifreniz Başarıyla Değiştirildi',
-                            f'Merhaba {user.username},\n\nHesabınızın şifresi az önce başarıyla değiştirildi. Eğer bu işlemi siz yapmadıysanız, lütfen hemen bizimle iletişime geçin.\n\nSaygılarımızla,\nBitHub Harita Ekibi',
-                            settings.DEFAULT_FROM_EMAIL,
-                            [user.email],
-                            fail_silently=True, # E-posta başarısız olsa bile işleme devam et
-                        )
-                    except Exception:
-                        # E-posta gönderim hatası, kullanıcıya şifre sıfırlamanın başarılı olduğu bilgisini vermemizi engellememeli
-                        pass
-                    
-                    return Response({
-                        "message": "Şifreniz başarıyla güncellendi."
-                    }, status=status.HTTP_200_OK)
-                except Exception as e:
-                    return Response({
-                        "error": "Şifre güncellenirken bir hata oluştu.",
-                        "details": str(e) if settings.DEBUG else "Lütfen daha sonra tekrar deneyin."
-                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                # Yeni şifreyi ayarla ve token'ı temizle
+                user.set_password(new_password)
+                user.save()
+                
+                # Token'ı temizle
+                profile.reset_password_token = None
+                profile.reset_password_token_created_at = None
+                profile.save()
+                
+                return Response({
+                    "message": "Şifreniz başarıyla güncellendi."
+                }, status=status.HTTP_200_OK)
                 
             except UserProfile.DoesNotExist:
                 return Response({
-                    "error": "Geçersiz veya süresi dolmuş token. Lütfen yeni bir şifre sıfırlama isteği oluşturun."
+                    "error": "Geçersiz token. Lütfen yeni bir şifre sıfırlama isteği oluşturun."
                 }, status=status.HTTP_400_BAD_REQUEST)
                 
         except Exception as e:
@@ -329,62 +295,67 @@ class PasswordResetVerifyTokenView(APIView):
     
     def get(self, request, token):
         try:
-            # Token formatını kontrol et (UUID formatı)
+            # Token formatını kontrol et
             try:
                 uuid_obj = uuid.UUID(token)
                 if str(uuid_obj) != token:
-                    return Response({
-                        "error": "Geçersiz token formatı.",
-                        "valid": False
-                    }, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"valid": False, "error": "Geçersiz token formatı."}, status=status.HTTP_400_BAD_REQUEST)
             except ValueError:
-                return Response({
-                    "error": "Geçersiz token formatı.",
-                    "valid": False
-                }, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"valid": False, "error": "Geçersiz token formatı."}, status=status.HTTP_400_BAD_REQUEST)
             
-            # Token'ı veritabanında ara
+            # Token ile kullanıcıyı bul ve süresini kontrol et
             try:
                 profile = UserProfile.objects.get(reset_password_token=token)
-                
-                # Token'ın süresi dolmuş mu kontrol et (24 saat)
-                if not profile.reset_password_token_created_at:
-                    return Response({
-                        "error": "Geçersiz token.",
-                        "valid": False
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                    
-                if profile.reset_password_token_created_at < timezone.now() - timedelta(hours=24):
-                    return Response({
-                        "error": "Şifre sıfırlama bağlantısının süresi dolmuş.",
-                        "valid": False,
-                        "expired": True
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                
-                # Token geçerli
-                return Response({
-                    "message": "Token geçerli.",
-                    "valid": True,
-                    "username": profile.user.username,
-                    "email": profile.user.email
-                }, status=status.HTTP_200_OK)
-                
+                if profile.reset_password_token_created_at and profile.reset_password_token_created_at >= timezone.now() - timedelta(hours=24):
+                    # Token geçerli ve süresi dolmamış
+                    return Response({"valid": True}, status=status.HTTP_200_OK)
+                else:
+                    # Token süresi dolmuş
+                    return Response({"valid": False, "error": "Token süresi dolmuş."}, status=status.HTTP_400_BAD_REQUEST)
             except UserProfile.DoesNotExist:
-                return Response({
-                    "error": "Geçersiz veya süresi dolmuş token.",
-                    "valid": False
-                }, status=status.HTTP_400_BAD_REQUEST)
+                # Token bulunamadı
+                return Response({"valid": False, "error": "Geçersiz token."}, status=status.HTTP_400_BAD_REQUEST)
                 
         except Exception as e:
-            # Genel hata yakalama
             if settings.DEBUG:
                 return Response({
-                    "error": "Bir hata oluştu",
-                    "details": str(e),
-                    "valid": False
+                    "valid": False, 
+                    "error": "Token doğrulaması sırasında bir hata oluştu.",
+                    "details": str(e)
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             else:
                 return Response({
-                    "error": "İşlem sırasında bir hata oluştu.",
-                    "valid": False
+                    "valid": False, 
+                    "error": "Token doğrulaması sırasında bir hata oluştu."
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class UserProfileView(generics.RetrieveUpdateAPIView):
+    queryset = UserProfile.objects.all()
+    serializer_class = UserProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        # İsteği yapan kullanıcının profilini döndür
+        return get_object_or_404(UserProfile, user=self.request.user)
+
+# Yeni: FavoriteLocation için ViewSet
+class FavoriteLocationViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows users' favorite locations to be viewed, created, or deleted.
+    """
+    serializer_class = FavoriteLocationSerializer
+    permission_classes = [IsAuthenticated] # Sadece giriş yapmış kullanıcılar erişebilir
+
+    def get_queryset(self):
+        """
+        This view should return a list of all the favorite locations
+        for the currently authenticated user.
+        """
+        user = self.request.user
+        return FavoriteLocation.objects.filter(user=user).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        """
+        Save the favorite location instance, associating it with the current user.
+        """
+        serializer.save(user=self.request.user)
