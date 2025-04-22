@@ -9,6 +9,7 @@ import {
 } from '../models/Models';
 import SearchBox from './SearchBox';
 import FavoritesBox from './FavoritesBox';
+import AddFavoriteModal from './AddFavoriteModal';
 import sourceMarkerIcon from '../assets/source-marker.svg';
 import destinationMarkerIcon from '../assets/destination-marker.svg';
 import pharmacyIconUrl from '../assets/eczane.svg';
@@ -107,6 +108,228 @@ const MapComponent: React.FC = () => {
   const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || '';
 
   const [favorites, setFavorites] = useState<FavoriteLocation[]>([]);
+  const [selectedPoint, setSelectedPoint] = useState<PointOfInterest | undefined>(undefined);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [userToken, setUserToken] = useState<string | null>(null);
+
+  // Kullanıcı tokenını localStorage'dan al ve daha güçlü bir tokeni kontrol et
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    console.log('Token var mı:', token ? 'VAR' : 'YOK');
+    setUserToken(token);
+
+    // Tokenı useEffect dependency array'e ekledik, o yüzden burada manual çağrı yapmaya gerek yok
+  }, []);
+
+  // API'den favorileri çekme fonksiyonu oluşturuyorum
+  const fetchFavoritesFromApi = async (token: string) => {
+    if (!token) return;
+    
+    try {
+      console.log('🔄 API isteği: /api/users/favorites/');
+      const response = await axios.get(
+        `${BACKEND_API_URL}/api/users/favorites/`,
+        {
+          headers: {
+            'Authorization': `Token ${token}`
+          }
+        }
+      );
+      
+      // Konsola favorileri yazdıralım
+      console.log('✅ API yanıtı:', response.data.length, 'adet favori alındı');
+      
+      // Backend'den gelen verileri formatla
+      const backendFavorites = response.data.map((item: any) => ({
+        id: item.id.toString(),
+        name: item.name,
+        address: item.address || '',
+        lat: item.latitude,
+        lng: item.longitude
+      }));
+      
+      // Favorileri state'e kaydet
+      setFavorites(backendFavorites);
+      console.log('✅ Favoriler state\'e kaydedildi');
+    } catch (error: any) {
+      console.error('❌ API hatası:', error.message);
+      
+      // Token geçersiz olmuş olabilir, bu durumda kullanıcıyı yeniden giriş yapmaya yönlendir
+      if (error.response?.status === 401) {
+        console.error('❌ Token geçersiz, oturum süresi dolmuş!');
+        localStorage.removeItem('token'); // Geçersiz token'ı sil
+        setUserToken(null); // Uygulama state'ini güncelle
+        toast.error('Oturum süreniz dolmuş. Lütfen yeniden giriş yapın.');
+      } else {
+        toast.error('Favorileriniz yüklenirken bir hata oluştu');
+      }
+    }
+  };
+
+  // Load favorites from API when component mounts OR from localStorage if user is not logged in
+  useEffect(() => {
+    console.log('useEffect: Token durumu:', userToken ? 'TOKEN VAR' : 'TOKEN YOK');
+    
+    if (userToken) {
+      // Token varsa, API'den favorileri al
+      console.log('💾 Favorileri API\'den yüklüyorum...');
+      fetchFavoritesFromApi(userToken);
+    } else {
+      // Token yoksa localStorage'dan al
+      console.log('💾 Favorileri localStorage\'dan yüklüyorum...');
+      const savedFavorites = localStorage.getItem('favorites');
+      if (savedFavorites) {
+        try {
+          setFavorites(JSON.parse(savedFavorites));
+        } catch (error) {
+          console.error('Error parsing favorites from localStorage:', error);
+          localStorage.removeItem('favorites');
+        }
+      }
+    }
+  }, [userToken]); // BACKEND_API_URL zaten değişmiyor, sadece userToken değişince bu effect çalışacak
+
+  // Yeni favori ekleme fonksiyonu - Direkt API'ye gönderip sonucu state'e yaz
+  const handleAddFavorite = async (favorite: FavoriteLocation) => {
+    console.log('⭐ Favori ekleniyor:', favorite.name);
+
+    try {
+      // Kullanıcı giriş yapmışsa API'ye kaydet
+      if (userToken) {
+        console.log('🔄 API\'ye favori ekliyorum...');
+        try {
+          const response = await axios.post(
+            `${BACKEND_API_URL}/api/users/favorites/`,
+            {
+              name: favorite.name,
+              address: favorite.address,
+              latitude: favorite.lat,
+              longitude: favorite.lng
+            },
+            {
+              headers: {
+                Authorization: `Token ${userToken}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          
+          console.log('✅ Favori API\'ye kaydedildi:', response.data.id);
+
+          // API'den dönen veriyi state'e ekle
+          const newFavorite: FavoriteLocation = {
+            id: response.data.id.toString(), // ID'yi string'e çevir
+            name: response.data.name,
+            address: response.data.address,
+            lat: response.data.latitude,
+            lng: response.data.longitude
+          };
+
+          setFavorites(prevFavorites => [...prevFavorites, newFavorite]);
+          toast.success('Favori konumunuz başarıyla kaydedildi!');
+        } catch (error: any) {
+          console.error('❌ Favori ekleme hatası:', error.message);
+          
+          // Token geçersiz olmuş olabilir
+          if (error.response?.status === 401) {
+            localStorage.removeItem('token');
+            setUserToken(null);
+            toast.error('Oturum süreniz dolmuş. Lütfen yeniden giriş yapın.');
+            return;
+          }
+          
+          if (error.response?.status === 400 && error.response?.data?.name?.[0]?.includes('already exists')) {
+            toast.error('Bu isimde bir favori zaten var!');
+          } else {
+            toast.error(`Favori eklenemedi: ${error.response?.data?.detail || error.message || 'Bilinmeyen hata'}`);
+          }
+          return;
+        }
+      } else {
+        console.log('💾 LocalStorage\'a favori kaydediyorum...');
+        // Kullanıcı giriş yapmamışsa localStorage'a kaydet
+        
+        // Mevcut favorileri kontrol et, aynı isimde favori varsa hata ver
+        const nameExists = favorites.some(fav => fav.name.toLowerCase() === favorite.name.toLowerCase());
+        if (nameExists) {
+          toast.error('Bu isimde bir favori zaten var!');
+          return;
+        }
+        
+        // ID oluştur
+        favorite.id = Date.now().toString();
+        
+        const updatedFavorites = [...favorites, favorite];
+        setFavorites(updatedFavorites);
+
+        try {
+          localStorage.setItem('favorites', JSON.stringify(updatedFavorites));
+          console.log('✅ Favori localStorage\'a kaydedildi');
+          toast.success('Favori konumunuz kaydedildi!');
+        } catch (error) {
+          console.error('❌ localStorage kayıt hatası');
+          toast.error('Favori kaydedilemedi!');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Beklenmeyen hata!', error);
+      toast.error('Favori kaydedilemedi!');
+    }
+  };
+
+  // Favori silme fonksiyonu
+  const handleRemoveFavorite = async (id: string) => {
+    try {
+      if (userToken) {
+        console.log(`🔄 API'den favori siliyorum, ID: ${id}`);
+        try {
+          await axios.delete(`${BACKEND_API_URL}/api/users/favorites/${id}/`, {
+            headers: {
+              Authorization: `Token ${userToken}`,
+            },
+          });
+          
+          console.log('✅ Favori API\'den silindi');
+        } catch (error: any) {
+          console.error('❌ API favori silme hatası:', error.message);
+          
+          // Token geçersiz olmuş olabilir
+          if (error.response?.status === 401) {
+            localStorage.removeItem('token');
+            setUserToken(null);
+            toast.error('Oturum süreniz dolmuş. Lütfen yeniden giriş yapın.');
+            return;
+          }
+          
+          if (error.response?.status === 404) {
+            // Favori zaten silinmiş, sorun yok devam et
+            console.log('ℹ️ Favori zaten silinmiş, işleme devam ediliyor');
+          } else {
+            console.error('❌ Detaylı hata:', error.response?.data);
+            toast.error(`Favori silinemedi: ${error.response?.data?.detail || error.message || 'Bilinmeyen hata'}`);
+            return;
+          }
+        }
+      } else {
+        console.log(`💾 LocalStorage'dan favori siliyorum, ID: ${id}`);
+      }
+
+      // Her durumda state'den sil
+      setFavorites((prevFavorites) => prevFavorites.filter((fav) => fav.id !== id));
+      
+      // Kullanıcı giriş yapmamışsa localStorage'ı güncelle
+      if (!userToken) {
+        const updatedFavorites = favorites.filter((fav) => fav.id !== id);
+        localStorage.setItem('favorites', JSON.stringify(updatedFavorites));
+        console.log('✅ Favori localStorage\'dan silindi');
+      }
+      
+      toast.success('Favori silindi!');
+    } catch (error) {
+      console.error('❌ Beklenmeyen hata!', error);
+      toast.error('Favori silinemedi!');
+    }
+  };
 
   useEffect(() => {
     // API key kontrolü
@@ -262,9 +485,26 @@ const MapComponent: React.FC = () => {
         }
       }
 
+      // Favoriye ekle butonu ekle
+      popupContent += `<button class="add-favorite-button" data-id="${point.id}">Favorilere Ekle</button>`;
+
       popupContent += `</div>`;
 
-      marker.bindPopup(popupContent);
+      const popup = L.popup().setContent(popupContent);
+      
+      marker.bindPopup(popup);
+      
+      // Popup açıldığında butonları işlevsel hale getir
+      marker.on('popupopen', () => {
+        const favButton = document.querySelector(`.add-favorite-button[data-id="${point.id}"]`);
+        if (favButton) {
+          favButton.addEventListener('click', () => {
+            setSelectedPoint(point);
+            setIsModalOpen(true);
+          });
+        }
+      });
+      
       marker.addTo(map);
       return marker;
     });
@@ -627,30 +867,13 @@ const MapComponent: React.FC = () => {
     }
   };
 
-  // Load favorites from localStorage when component mounts
-  useEffect(() => {
-    const savedFavorites = localStorage.getItem('favorites');
-    if (savedFavorites) {
-      try {
-        setFavorites(JSON.parse(savedFavorites));
-      } catch (error) {
-        console.error('Error parsing favorites from localStorage:', error);
-        localStorage.removeItem('favorites');
-      }
-    }
-  }, []);
-
-  // Save favorites to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('favorites', JSON.stringify(favorites));
-  }, [favorites]);
-
-  // Handler for favorite location select
+  // Handler for favorite location select - DESTINATION olarak değiştiriyoruz
   const handleFavoriteSelect = (favorite: FavoriteLocation) => {
     if (map) {
       map.setView([favorite.lat, favorite.lng], 15);
-      addMarker(favorite.lat, favorite.lng, true);
-      toast.success(`Navigated to ${favorite.name}!`);
+      // Favori konumu artık destination (varış noktası) olarak ayarla
+      addMarker(favorite.lat, favorite.lng, false);
+      toast.success(`${favorite.name} varış noktası olarak ayarlandı!`);
     }
   };
 
@@ -735,11 +958,21 @@ const MapComponent: React.FC = () => {
           <FavoritesBox 
             favorites={favorites}
             onSelectFavorite={handleFavoriteSelect}
+            onRemoveFavorite={handleRemoveFavorite}
           />
         </div>
       </div>
       
       <div id="map"></div>
+      
+      {/* Favori ekleme modalına token'ı geçiyoruz */}
+      <AddFavoriteModal 
+        point={selectedPoint}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleAddFavorite}
+        token={userToken || undefined}
+      />
     </div>
   );
 };

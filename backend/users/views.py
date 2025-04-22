@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
-from .serializers import GoogleAuthSerializer, RegisterSerializer, UserSerializer, LoginSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer, UserDetailSerializer, FavoriteLocationSerializer
+from .serializers import UserSerializer, LoginSerializer, RegisterSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer, GoogleAuthSerializer, FavoriteLocationSerializer
 from .models import UserProfile, FavoriteLocation
 from django.conf import settings
 import uuid

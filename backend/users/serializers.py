@@ -180,9 +180,13 @@ class FavoriteLocationSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def create(self, validated_data):
-        # Kullanıcıyı context'ten al
-        user = self.context['request'].user
-        return FavoriteLocation.objects.create(user=user, **validated_data)
+        # views.py'den user geçilmiş mi kontrol et, geçilmişse kullanma
+        if 'user' not in validated_data:
+            # Kullanıcıyı context'ten al
+            user = self.context['request'].user
+            return FavoriteLocation.objects.create(user=user, **validated_data)
+        # Kullanıcı zaten parametrelerde varsa direkt validated_data kullan
+        return FavoriteLocation.objects.create(**validated_data)
 
     def validate(self, data):
         # Aynı isimle başka bir favori lokasyon var mı kontrolü yap

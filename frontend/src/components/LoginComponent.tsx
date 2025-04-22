@@ -203,7 +203,16 @@ const Login = () => {
 
       // Parse the response
       const data = await response.json();
-      console.log(data);
+      console.log("Login başarılı! Yanıt:", data);
+      
+      // Token'ı localStorage'a kaydet
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+        console.log("Token localStorage'a kaydedildi:", data.token.substring(0, 5) + "...");
+      } else {
+        console.error("API'den token alınamadı!");
+      }
+      
       localStorage.setItem("googleApiKey", data.google_api_key);
       localStorage.setItem("hereApiKey", data.here_api_key);
 
@@ -244,6 +253,19 @@ const Login = () => {
           if (!response.ok) {
             throw new Error("Registration failed"+response.statusText);
           }
+          
+          // Google login yanıtını işle ve token'ı kaydet
+          const data = await response.json();
+          console.log("Google login başarılı! Yanıt:", data);
+          
+          // Token'ı localStorage'a kaydet
+          if (data.token) {
+            localStorage.setItem("token", data.token);
+            console.log("Token localStorage'a kaydedildi:", data.token.substring(0, 5) + "...");
+          } else {
+            console.error("API'den token alınamadı!");
+          }
+          
           navigate('/map');
         } else {
           console.error('Authentication failed:', googleAuthResult);
