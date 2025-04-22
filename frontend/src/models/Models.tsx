@@ -9,6 +9,11 @@ export interface PharmacyLocation {
   lng: number;
 }
 
+export interface TaxiStationLocation {
+  lat: number;
+  lng: number;
+}
+
 export interface Pharmacy {
   id: number;
   name: string;
@@ -19,6 +24,14 @@ export interface Pharmacy {
   district?: string;
   extra_info?: string;
   location: PharmacyLocation;
+}
+
+export interface TaxiStation {
+  name: string;
+  location: TaxiStationLocation;
+  rating: number;
+  phoneNumber: string;
+  place_id: string;
 }
 
 // Points of Interest

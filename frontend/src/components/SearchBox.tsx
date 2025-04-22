@@ -1,22 +1,19 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import axios from 'axios';
+import { SearchBoxProps, SearchBoxRef, SearchResult } from '../models/Models';
 import './SearchBox.css';
-import { SearchBoxProps,SearchBoxRef, SearchResult, GoogleGeocodingResponse } from '../models/Models';
-
-
-
-
 
 const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps>(({ placeholder, onLocationSelect, children }, ref) => {
-  const [query, setQuery] = useState('');
+  const [query, setQueryState] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  const searchBoxRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || '';
 
   useImperativeHandle(ref, () => ({
     setQuery: (newQuery: string) => {
-      setQuery(newQuery);
+      setQueryState(newQuery);
       setResults([]);
       setShowResults(false);
     }
@@ -24,7 +21,7 @@ const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps>(({ placeholder, onLoc
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (searchBoxRef.current && !searchBoxRef.current.contains(event.target as Node)) {
+      if (resultsRef.current && !resultsRef.current.contains(event.target as Node)) {
         setShowResults(false);
       }
     };
@@ -33,47 +30,45 @@ const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps>(({ placeholder, onLoc
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const searchAddress = async (searchQuery: string) => {
-    if (!searchQuery.trim()) {
+  const searchAddress = async (query: string) => {
+    if (!query.trim()) {
       setResults([]);
       return;
     }
-  
+
     setIsLoading(true);
+    
     try {
-      // Retrieve the Google API key from local storage
-      const googleApiKey = localStorage.getItem('googleApiKey');
-      if (!googleApiKey) {
-        throw new Error('Google API key not found in local storage');
+      // Check if Google API key is available
+      if (!GOOGLE_API_KEY) {
+        console.error('Google API key is missing. Add VITE_GOOGLE_API_KEY to your .env file.');
+        return;
       }
-  
-      const response = await axios.get<GoogleGeocodingResponse>('https://maps.googleapis.com/maps/api/geocode/json', {
-        params: {
-          address: `${searchQuery}, Ankara, Turkey`,
-          key: googleApiKey,
-          bounds: '32.5,39.7|33.2,40.1', // Ankara bounds
-        }
-      });
-  
+
+      // Call Google Geocoding API for search results
+      const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query + ', Ankara, Turkey')}&key=${GOOGLE_API_KEY}&bounds=32.5,39.7|33.2,40.1`);
+      const data = await response.json();
+      
       // Convert lat and lng to strings
-      const searchResults: SearchResult[] = response.data.results.map(item => ({
+      const searchResults: SearchResult[] = data.results.map((item: any) => ({
         display_name: item.formatted_address,
-        lat: item.geometry.location.lat.toString(), // Convert to string
-        lon: item.geometry.location.lng.toString() // Convert to string
+        lat: item.geometry.location.lat.toString(),
+        lon: item.geometry.location.lng.toString()
       }));
-  
+
       setResults(searchResults);
       setShowResults(true);
     } catch (error) {
-      console.error('Error searching address:', error);
+      console.error('Error searching addresses:', error);
       setResults([]);
     } finally {
       setIsLoading(false);
     }
   };
+
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setQuery(value);
+    setQueryState(value);
     if (value.length >= 3) {
       searchAddress(value);
     } else {
@@ -82,19 +77,20 @@ const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps>(({ placeholder, onLoc
   };
 
   const handleResultClick = (result: SearchResult) => {
-    setQuery(result.display_name.split(',')[0]); // Show only the first part of the address
+    setQueryState(result.display_name.split(',')[0]); // Show only the first part of the address
     onLocationSelect(parseFloat(result.lat), parseFloat(result.lon));
     setShowResults(false);
   };
 
   return (
-    <div className="search-box" ref={searchBoxRef}>
+    <div className="search-box" ref={resultsRef}>
       <input
         type="text"
         value={query}
         onChange={handleSearch}
         placeholder={placeholder}
         className="search-input"
+        ref={inputRef}
       />
       {children}
       {isLoading && <div className="loading-indicator">Searching...</div>}

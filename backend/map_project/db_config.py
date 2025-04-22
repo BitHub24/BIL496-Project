@@ -19,9 +19,9 @@ print(f"DB PORT: {os.getenv('DB_PORT', 'Değer yok')}")
 # PostgreSQL bağlantı bilgileri .env dosyasından alınır
 POSTGRES_CONFIG = {
     'NAME': os.getenv('DB_NAME', 'bithub'),  # Veritabanı adı
-    'USER': os.getenv('DB_USER', 'admin'),   # Kullanıcı adı
-    'PASSWORD': os.getenv('DB_PASSWORD', 'srTCbq8c7H7QEfOf2Wgg7ORpHAGOBSrV'),   # Şifre
-    'HOST': os.getenv('DB_HOST', 'oregon-postgres.render.com'),       # IP adresi
+    'USER': os.getenv('DB_USER', 'postgres'),   # Kullanıcı adı
+    'PASSWORD': os.getenv('DB_PASSWORD', '123'),   # Şifre
+    'HOST': os.getenv('DB_HOST', 'localhost'),       # IP adresi
     'PORT': os.getenv('DB_PORT', '5432'),            # Port numarası
 }
 

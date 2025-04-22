@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'traffic_data',  # Trafik verilerini toplama modülü
     'wifi_points',  # WiFi noktaları uygulaması
     'bicycle_points',  # Bisiklet istasyonları uygulaması
+    'taxi_stations',  # Taksi durakları uygulaması
 ]
 
 MIDDLEWARE = [

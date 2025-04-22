@@ -192,28 +192,34 @@ class NearestPharmacyView(APIView):
             # If there are pharmacies without location data, try to geocode them
             if pharmacies_without_location and len(pharmacies_with_location) < count:
                 for pharmacy in pharmacies_without_location:
-                    # Geocode address using our own geocoding API
+                    # HERE API yerine Google Maps API kullanarak geocoding yapalım
                     try:
-                        query = f"{pharmacy.name} {pharmacy.address} {pharmacy.district}"
+                        query = f"{pharmacy.name} {pharmacy.address}, Ankara, Turkey"
+                        google_api_key = settings.GOOGLE_API_KEY
+                        
+                        # Google Maps API'ye doğrudan istek at
                         response = requests.get(
-                            f"{request.scheme}://{request.get_host()}/api/geocoding/search/",
-                            params={"q": query, "limit": 1}
+                            f"https://maps.googleapis.com/maps/api/geocode/json",
+                            params={
+                                "address": query,
+                                "key": google_api_key
+                            }
                         )
                         
                         if response.status_code == 200:
                             data = response.json()
-                            if data.get('items') and len(data['items']) > 0:
-                                position = data['items'][0].get('position')
-                                if position:
-                                    pharmacy.latitude = position['lat']
-                                    pharmacy.longitude = position['lng']
-                                    pharmacy.save()
-                                    
-                                    # Calculate distance
-                                    distance = calculate_distance(latitude, longitude, pharmacy.latitude, pharmacy.longitude)
-                                    pharmacies_with_location.append((pharmacy, distance))
+                            if data.get('status') == 'OK' and len(data.get('results', [])) > 0:
+                                location = data['results'][0]['geometry']['location']
+                                pharmacy.latitude = location['lat']
+                                pharmacy.longitude = location['lng']
+                                pharmacy.save()
+                                
+                                # Calculate distance
+                                distance = calculate_distance(latitude, longitude, pharmacy.latitude, pharmacy.longitude)
+                                pharmacies_with_location.append((pharmacy, distance))
                     except Exception as e:
-                        # Hata olursa loglayabiliriz ama şimdilik devam edelim
+                        # Hata olursa sadece loglayalım ve devam edelim
+                        print(f"Google Geocoding error for {pharmacy.name}: {str(e)}")
                         pass
             
             # Sort pharmacies by distance

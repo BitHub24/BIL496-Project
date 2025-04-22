@@ -10,7 +10,8 @@ import {
 import SearchBox from './SearchBox';
 import sourceMarkerIcon from '../assets/source-marker.svg';
 import destinationMarkerIcon from '../assets/destination-marker.svg';
-import pharmacyIconUrl from '../assets/eczane.svg'
+import pharmacyIconUrl from '../assets/eczane.svg';
+import taxiIconUrl from '../assets/taxi.svg';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';  // Import image for iconUrl
 import markerIconRetina from 'leaflet/dist/images/marker-icon-2x.png';  // Import image for iconRetinaUrl
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';  // Import image for shadowUrl
@@ -52,6 +53,13 @@ const pharmacyIcon = new L.Icon({
   iconAnchor: [12, 25],
   popupAnchor: [1, -34]
 });
+
+const taxiIcon = new L.Icon({
+  iconUrl: taxiIconUrl,
+  iconSize: [25, 25],
+  iconAnchor: [12, 25],
+  popupAnchor: [1, -34]
+});
 /*
 const bicycleIcon = new L.Icon({
   iconUrl: bicycleIconUrl,
@@ -82,13 +90,30 @@ const MapComponent: React.FC = () => {
   //const [routeLayer, setRouteLayer] = useState<L.Layer | null>(null);
   const [sourceMarker, setSourceMarker] = useState<L.Marker | null>(null);
   const [destinationMarker, setDestinationMarker] = useState<L.Marker | null>(null);
-  const [poiMarkers, setPoiMarkers] = useState<L.Marker[]>([]);
+  
+  // Her POI türü için ayrı marker state'leri
+  const [pharmacyMarkers, setPharmacyMarkers] = useState<L.Marker[]>([]);
+  const [taxiMarkers, setTaxiMarkers] = useState<L.Marker[]>([]);
+  
+  const [taxiStations, setTaxiStations] = useState<any[]>([]);
+  const [isLoadingTaxis, setIsLoadingTaxis] = useState<boolean>(false);
+  const [isLoadingPharmacies, setIsLoadingPharmacies] = useState<boolean>(false);
+  const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
 
   const sourceSearchRef = useRef<SearchBoxRef>(null);
   const destinationSearchRef = useRef<SearchBoxRef>(null);
   const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL;
+  const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || '';
 
   useEffect(() => {
+    // API key kontrolü
+    if (!GOOGLE_API_KEY) {
+      setApiKeyMissing(true);
+      toast.error('Google API key is missing. Some features may not work correctly. Please add VITE_GOOGLE_API_KEY to your .env file.', {
+        duration: 6000,
+      });
+    }
+    
     const mapInstance = L.map('map', {
       center: ANKARA_CENTER,
       zoom: 12,
@@ -112,18 +137,36 @@ const MapComponent: React.FC = () => {
     };
   }, []);
 
-  const clearPoiMarkers = () => {
+  // Farklı POI türleri için temizleme fonksiyonları
+  const clearPharmacyMarkers = () => {
     if (!map) return;
-    poiMarkers.forEach(marker => map.removeLayer(marker));
-    setPoiMarkers([]);
+    pharmacyMarkers.forEach(marker => map.removeLayer(marker));
+    setPharmacyMarkers([]);
+  };
+
+  const clearTaxiMarkers = () => {
+    if (!map) return;
+    taxiMarkers.forEach(marker => map.removeLayer(marker));
+    setTaxiMarkers([]);
+  };
+
+  // Tüm POI marker'larını temizleme (artık kullanılmıyor)
+  const clearAllMarkers = () => {
+    clearPharmacyMarkers();
+    clearTaxiMarkers();
   };
 
   const findNearestAddress = async (lat: number, lng: number): Promise<string> => {
     try {
+      if (!GOOGLE_API_KEY) {
+        console.error('Google API key is missing. Add VITE_GOOGLE_API_KEY to your .env file.');
+        return ''; // Return empty if API key is missing
+      }
+      
       const response = await axios.get<GeocodeResponse>('https://maps.googleapis.com/maps/api/geocode/json', {
         params: {
           latlng: `${lat},${lng}`,
-          key: localStorage.getItem('googleApiKey')
+          key: GOOGLE_API_KEY
         }
       });
 
@@ -149,11 +192,15 @@ const MapComponent: React.FC = () => {
     }
   };
 
-  const addPoiMarkers = (points: PointOfInterest[], icon: L.Icon, titleKey: keyof PointOfInterest = 'name') => {
+  // POI marker'larını ekleme fonksiyonu (POI türüne göre marker listesini seçer)
+  const addPoiMarkers = (points: PointOfInterest[], icon: L.Icon, titleKey: keyof PointOfInterest = 'name', poiType: 'pharmacy' | 'taxi' = 'pharmacy') => {
     if (!map) return;
 
-    clearPoiMarkers(); // Clear any existing POI markers
+    // POI türüne göre marker state'ini ve setter'ını seçme
+    const markerSetter = poiType === 'pharmacy' ? setPharmacyMarkers : setTaxiMarkers;
+    const currentMarkers = poiType === 'pharmacy' ? pharmacyMarkers : taxiMarkers;
 
+    // Yeni marker'ları oluştur
     const newMarkers = points.map(point => {
       // Safely get the title
       let title: string;
@@ -176,6 +223,41 @@ const MapComponent: React.FC = () => {
       if (point.address) popupContent += `<p>${point.address}</p>`;
       if (point.phone) popupContent += `<p>Phone: ${point.phone}</p>`;
       if (point.distance) popupContent += `<p>Distance: ${point.distance.toFixed(2)} km</p>`;
+      
+      // Eğer extra_info içinde rating varsa, onu da ekle
+      if (point.extra_info && point.extra_info.includes('Rating:')) {
+        const ratingMatch = point.extra_info.match(/Rating: ([\d.]+|N\/A)/);
+        if (ratingMatch && ratingMatch[1]) {
+          const rating = ratingMatch[1];
+          // Yıldız simgeleri ile puanı göster
+          if (rating !== 'N/A') {
+            const numRating = parseFloat(rating);
+            const fullStars = Math.floor(numRating);
+            const halfStar = numRating % 1 >= 0.5;
+            let stars = '';
+            
+            // Dolu yıldızları ekle
+            for (let i = 0; i < fullStars; i++) {
+              stars += '★';
+            }
+            
+            // Yarım yıldız varsa ekle
+            if (halfStar) {
+              stars += '⯨';
+            }
+            
+            // Boş yıldızları ekle
+            const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
+            for (let i = 0; i < emptyStars; i++) {
+              stars += '☆';
+            }
+            
+            popupContent += `<p>Google Rating: ${rating} ${stars}</p>`;
+          } else {
+            popupContent += `<p>Google Rating: No rating</p>`;
+          }
+        }
+      }
 
       popupContent += `</div>`;
 
@@ -184,7 +266,8 @@ const MapComponent: React.FC = () => {
       return marker;
     });
 
-    setPoiMarkers(newMarkers);
+    // Marker state'ini güncelle
+    markerSetter(newMarkers);
 
     // Fit bounds to show all POIs if there are any
     if (points.length > 0) {
@@ -196,6 +279,70 @@ const MapComponent: React.FC = () => {
   };
 
   const [isToastError, setIsToastError] = useState(false);
+
+  const fetchTaxiStations = async () => {
+    try {
+      if (!map) return;
+      
+      // Eğer konum seçilmemişse uyarı göster
+      if (!source) {
+        setIsToastError(true);
+        toast.error('Please select a location first');
+        setTimeout(() => setIsToastError(false), 1000);
+        return;
+      }
+      
+      // Yükleme başladı
+      setIsLoadingTaxis(true);
+      
+      // Kullanıcının konumunu kullanarak API'ye istek at
+      const response = await axios.get(
+        `${BACKEND_API_URL}/api/taxi-stations/`,
+        {
+          params: {
+            location: `${source.lat},${source.lng}`,
+            radius: 5000
+          }
+        }
+      );
+
+      // Yanıtı kontrol et
+      if (!response.data || response.data.error) {
+        toast.error('Could not fetch taxi stations: ' + (response.data?.error || 'Unknown error'));
+        setIsLoadingTaxis(false);
+        return;
+      }
+
+      // Backend'den gelen verileri sakla
+      setTaxiStations(response.data);
+      console.log('Taxi stations:', response.data);
+
+      // PointOfInterest listesine çevirerek haritada gösterebiliriz
+      const taxiPOIs: PointOfInterest[] = response.data.map((station: any) => ({
+        id: Math.random(), // Geçici ID
+        name: station.name,
+        address: '', // Bu bilgi yok
+        phone: station.phoneNumber || 'No phone information',
+        lat: station.location.lat,
+        lng: station.location.lng,
+        extra_info: `Rating: ${station.rating || 'N/A'}`
+      }));
+
+      // Sadece taksi marker'larını temizle, eczanelere dokunma
+      clearTaxiMarkers();
+      
+      // Taksi POIs'leri ekle, taxi tipinde
+      addPoiMarkers(taxiPOIs, taxiIcon, 'name', 'taxi');
+      
+      // Yükleme bitti
+      setIsLoadingTaxis(false);
+
+    } catch (error) {
+      console.error('Error fetching taxi stations:', error);
+      toast.error('Error fetching taxi stations');
+      setIsLoadingTaxis(false);
+    }
+  };
 
   const fetchPharmacies = async () => {
     try {
@@ -209,59 +356,90 @@ const MapComponent: React.FC = () => {
         return
       }
 
+      // Yükleniyor durumunu başlat
+      setIsLoadingPharmacies(true);
 
-      const response = await axios.get<Pharmacy[]>(
-        `${BACKEND_API_URL}/api/pharmacies/nearest?lat=${source?.lat}&lng=${source?.lng}&date=2025-03-20`
-      );
+      // Bugünün tarihini YYYY-MM-DD formatında al
+      const today = new Date();
+      const formattedDate = today.toISOString().split('T')[0];
 
-      // Process the data with proper type safety
-      const pharmacies: PointOfInterest[] = response.data
-        .filter((pharmacy): pharmacy is Pharmacy =>
-          pharmacy.location &&
-          typeof pharmacy.location.lat === 'number' &&
-          typeof pharmacy.location.lng === 'number'
-        )
-        .map(pharmacy => ({
-          id: pharmacy.id,
-          name: pharmacy.name,
-          address: pharmacy.address,
-          phone: pharmacy.phone,
-          lat: pharmacy.location.lat,
-          lng: pharmacy.location.lng,
-          ...(pharmacy.distance && { distance: pharmacy.distance }),
-          ...(pharmacy.district && { district: pharmacy.district }),
-          ...(pharmacy.extra_info && { extra_info: pharmacy.extra_info })
-        }));
-
-      console.log('Processed pharmacies:', pharmacies);
-      if (destinationMarker) {
-        console.log("dest marker deleted");
-        setDestinationMarker(null);
-        setDestination(null);
-        map.removeLayer(destinationMarker)
-      }
-      if (pharmacies.length === 0) {
-        console.warn('No valid pharmacies found');
-        return;
-      }
-      const closestPharmacy = pharmacies[0];
-      setDestination({
-        lat: closestPharmacy.lat,
-        lng: closestPharmacy.lng
-      });
-      if (destinationSearchRef.current && closestPharmacy.address) {
-        destinationSearchRef.current.setQuery(closestPharmacy.address);
-      }
-      if (source && closestPharmacy) {
-        await getRoute(
-          { lat: source.lat, lng: source.lng },
-          { lat: closestPharmacy.lat, lng: closestPharmacy.lng }
+      try {
+        const response = await axios.get<Pharmacy[]>(
+          `${BACKEND_API_URL}/api/pharmacies/nearest`,
+          {
+            params: {
+              lat: source.lat,
+              lng: source.lng,
+              date: formattedDate
+            }
+          }
         );
-      }
 
-      addPoiMarkers(pharmacies, pharmacyIcon, 'name');
+        // Process the data with proper type safety
+        const pharmacies: PointOfInterest[] = response.data
+          .filter((pharmacy): pharmacy is Pharmacy =>
+            pharmacy.location &&
+            typeof pharmacy.location.lat === 'number' &&
+            typeof pharmacy.location.lng === 'number'
+          )
+          .map(pharmacy => ({
+            id: pharmacy.id,
+            name: pharmacy.name,
+            address: pharmacy.address,
+            phone: pharmacy.phone,
+            lat: pharmacy.location.lat,
+            lng: pharmacy.location.lng,
+            ...(pharmacy.distance && { distance: pharmacy.distance }),
+            ...(pharmacy.district && { district: pharmacy.district }),
+            ...(pharmacy.extra_info && { extra_info: pharmacy.extra_info })
+          }));
+
+        console.log('Processed pharmacies:', pharmacies);
+        if (destinationMarker) {
+          console.log("dest marker deleted");
+          setDestinationMarker(null);
+          setDestination(null);
+          map.removeLayer(destinationMarker)
+        }
+        
+        if (pharmacies.length === 0) {
+          console.warn('No valid pharmacies found');
+          toast.error('No duty pharmacies found for today');
+          return;
+        }
+        
+        const closestPharmacy = pharmacies[0];
+        setDestination({
+          lat: closestPharmacy.lat,
+          lng: closestPharmacy.lng
+        });
+        
+        if (destinationSearchRef.current && closestPharmacy.address) {
+          destinationSearchRef.current.setQuery(closestPharmacy.address);
+        }
+        
+        if (source && closestPharmacy) {
+          await getRoute(
+            { lat: source.lat, lng: source.lng },
+            { lat: closestPharmacy.lat, lng: closestPharmacy.lng }
+          );
+        }
+
+        // Sadece eczane marker'larını temizle, taksilere dokunma
+        clearPharmacyMarkers();
+        
+        // Eczane POIs'leri ekle, pharmacy tipinde
+        addPoiMarkers(pharmacies, pharmacyIcon, 'name', 'pharmacy');
+      } catch (error) {
+        console.error('Error fetching pharmacies:', error);
+        toast.error('Error fetching pharmacies');
+      } finally {
+        // Her durumda yükleniyor durumunu kapat
+        setIsLoadingPharmacies(false);
+      }
     } catch (error) {
-      console.error('Error fetching pharmacies:', error);
+      console.error('Unexpected error:', error);
+      setIsLoadingPharmacies(false);
     }
   };
   const askForLocation = async () => {
@@ -480,9 +658,38 @@ const MapComponent: React.FC = () => {
             Get Directions
           </button>
         </div>
+
         <div className="point-of-interest-buttons">
-          <button onClick={fetchPharmacies} className="poi-button">
-            Show Duty Pharmacies
+          <button 
+            onClick={fetchPharmacies} 
+            className="poi-button"
+            disabled={isLoadingPharmacies}
+          >
+            {isLoadingPharmacies ? (
+              <>
+                <span className="loading-spinner"></span>
+                Loading Pharmacies...
+              </>
+            ) : (
+              'Show Duty Pharmacies'
+            )}
+          </button>
+        </div>
+
+        <div className="point-of-interest-buttons">
+          <button 
+            onClick={fetchTaxiStations} 
+            className="taxi-button"
+            disabled={isLoadingTaxis}
+          >
+            {isLoadingTaxis ? (
+              <>
+                <span className="loading-spinner"></span>
+                Loading Taxi Stations...
+              </>
+            ) : (
+              'Show Taxi Stations'
+            )}
           </button>
         </div>
 
