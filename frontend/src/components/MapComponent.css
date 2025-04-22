@@ -1,0 +1,182 @@
+.map-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.search-container {
+  position: absolute;
+  top: 60px;
+  left: 10px;
+  z-index: 1000;
+  width: 300px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  padding: 15px;
+}
+
+/* Sağ Alt Kontroller Konteyneri (Güncellendi) */
+.bottom-right-controls {
+  position: absolute;
+  /* top: 10px; */ /* Kaldırıldı */
+  bottom: 10px; /* Alta hizala */
+  right: 10px; /* Sağdan boşluk */
+  z-index: 1050;
+  display: flex;
+  gap: 10px;
+  /* align-items: flex-start; */ /* Kaldırıldı */
+  align-items: flex-end; /* Alta yasla */
+}
+
+/* MapStylesControl için ek stil gerekebilir, örn. */
+/* .map-styles-control-container {
+  background: white;
+  padding: 5px;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+} */
+
+/* TransportModeSelector için alt boşluk - KALDIRILDI */
+/* .transport-mode-selector {
+  margin-bottom: 15px;
+} */
+
+.search-box-with-button {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.location-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-left: 5px;
+  padding: 5px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f0f0f0;
+}
+
+.location-button:hover {
+  background-color: #e0e0e0;
+}
+
+.point-of-interest-buttons {
+  display: flex;
+  margin-top: 10px;
+  gap: 10px;
+}
+
+.poi-button, .route-button {
+  flex: 1;
+  padding: 8px 12px;
+  background-color: #4285F4;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.poi-button:hover, .route-button:hover {
+  background-color: #3367d6;
+}
+
+.route-button {
+  background-color: #34A853;
+}
+
+.route-button:hover {
+  background-color: #2d8d47;
+}
+
+/* Departure time selector styles - Üst boşluk kaldırıldı */
+.departure-time-container {
+  /* margin-top: 15px; */ /* Kaldırıldı */
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.departure-time-container label {
+  font-size: 14px;
+  margin-bottom: 5px;
+  color: #555;
+}
+
+.departure-time-input {
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+/* Error state for toast notifications */
+.toast-error {
+  background-color: #f44336;
+  color: white;
+}
+
+/* Yeni Menü Butonu Stilleri */
+.mode-menu-toggle-button {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  padding: 8px 12px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
+  /* margin-top: 10px; */ /* Wrapper'a taşınacak */
+  /* margin-bottom: 5px; */ /* Wrapper'a taşınacak */
+  /* margin-left: auto; */ /* Kaldırıldı */
+  /* margin-right: auto; */ /* Kaldırıldı */
+  font-size: 14px;
+  /* display: block; */ /* Geri alındı */
+  display: inline-flex; /* İçerik yan yana ve boyuta göre */
+  justify-content: space-between; /* Geri eklendi */
+  align-items: center; /* Geri eklendi */
+  gap: 10px; /* İkon/isim ile ok arası boşluk */
+}
+
+/* Yeni Ortalayıcı Wrapper */
+.mode-menu-toggle-wrapper {
+  display: flex; /* İçeriği (butonu) ortalamak için */
+  justify-content: center; /* Butonu yatayda ortala */
+  margin-top: 10px; /* Üstteki elemanla boşluk */
+  margin-bottom: 5px; /* Açılır menüyle arasındaki boşluk */
+}
+
+/* Buton içindeki ikon ve isim hizalaması */
+.mode-icon-name {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* İkon ve metin arası boşluk */
+}
+
+.mode-icon-name svg {
+  /* Gerekirse ikon boyutu veya rengi ayarlanabilir */
+  flex-shrink: 0; /* İkonun küçülmesini engelle */
+}
+
+.mode-icon-name .mode-name {
+  /* Gerekirse metin stili ayarlanabilir */
+}
+
+.mode-menu-toggle-button:hover {
+  background-color: #e9ecef;
+}
+
+/* Yeni Menü İçeriği Stilleri */
+.mode-menu-content {
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 10px; /* Altındaki butonlarla boşluk */
+  background-color: #fff; /* Arka plan ekleyebiliriz */
+}

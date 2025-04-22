@@ -1,0 +1,149 @@
+2025-04-21 10:56:31,576 - INFO - Logging başlatıldı. Log dosyası: EczaneData/logs/eczane_log_20250421.log
+2025-04-21 10:56:31,577 - INFO - 
+==================== Tarih: Bugün (Varsayılan) ====================
+2025-04-21 10:56:31,577 - INFO - Anlık veriler çekiliyor (varsayılan tarih)...
+2025-04-21 10:56:31,577 - INFO - Nöbetçi eczane verilerini çekme işlemi başlıyor...
+2025-04-21 10:56:31,577 - INFO - Tarayıcı başlatılıyor...
+2025-04-21 10:56:36,563 - INFO - Web sayfasına gidiliyor: https://www.aeo.org.tr/crisis-pha
+2025-04-21 10:56:37,718 - INFO - Sayfa yükleniyor, lütfen bekleyin...
+2025-04-21 10:56:40,723 - INFO - Çerez onay penceresi aranıyor...
+2025-04-21 10:56:40,754 - INFO - Çerez onay butonu bulundu, tıklanıyor...
+2025-04-21 10:56:41,856 - INFO - Çerez onay penceresi kapatıldı.
+2025-04-21 10:56:41,856 - INFO - Sayfadaki tarih alanını kontrol ediyorum...
+2025-04-21 10:56:41,881 - INFO - Tarih alanının varsayılan değeri: 2025-04-21
+2025-04-21 10:56:41,881 - INFO - Tarih alanının min değeri: 
+2025-04-21 10:56:41,881 - INFO - Tarih alanının max değeri: 
+2025-04-21 10:56:41,901 - INFO - Mevcut URL: https://www.aeo.org.tr/crisis-pha
+2025-04-21 10:56:41,903 - INFO - Sayfa başlığı: AEO
+2025-04-21 10:56:41,934 - INFO - 59 adet eczane adı bulundu.
+2025-04-21 10:56:41,935 - INFO - Tarayıcı kapatılıyor...
+2025-04-21 10:56:42,010 - INFO - Toplam 59 adet nöbetçi eczane verisi bulundu.
+2025-04-21 10:56:42,010 - INFO - Tekrarlananlar kaldırıldıktan sonra 57 adet tekil eczane kaldı.
+2025-04-21 10:56:42,010 - INFO - Konum bilgisi alınıyor: AKASYA ECZANESİ
+2025-04-21 10:56:42,837 - INFO - Konum bulundu: AKASYA ECZANESİ - 39.94994, 32.71595
+2025-04-21 10:56:43,342 - INFO - Konum bilgisi alınıyor: ALTINDAL ECZANESİ
+2025-04-21 10:56:43,927 - INFO - Konum bulundu: ALTINDAL ECZANESİ - 40.20456, 32.68043
+2025-04-21 10:56:44,432 - INFO - Konum bilgisi alınıyor: ANADOLU ECZANESİ
+2025-04-21 10:56:45,076 - INFO - Konum bulundu: ANADOLU ECZANESİ - 39.99239, 32.61395
+2025-04-21 10:56:45,578 - INFO - Konum bilgisi alınıyor: BALIŞEYH ECZANESİ
+2025-04-21 10:56:46,181 - INFO - Konum bulundu: BALIŞEYH ECZANESİ - 39.91613, 33.71584
+2025-04-21 10:56:46,681 - INFO - Konum bilgisi alınıyor: BARIŞ ECZANESİ
+2025-04-21 10:56:47,306 - INFO - Konum bulundu: BARIŞ ECZANESİ - 39.91768, 33.23123
+2025-04-21 10:56:47,811 - INFO - Konum bilgisi alınıyor: BERK  ECZANESİ
+2025-04-21 10:56:48,385 - INFO - Konum bulundu: BERK  ECZANESİ - 39.95671, 32.57796
+2025-04-21 10:56:48,891 - INFO - Konum bilgisi alınıyor: BİLGİÇ ECZANESİ
+2025-04-21 10:56:49,716 - INFO - Konum bulundu: BİLGİÇ ECZANESİ - 39.96962, 32.90521
+2025-04-21 10:56:50,222 - INFO - Konum bilgisi alınıyor: CANDEMİR ECZANESİ
+2025-04-21 10:56:50,842 - INFO - Konum bulundu: CANDEMİR ECZANESİ - 39.8858, 32.62958
+2025-04-21 10:56:51,344 - INFO - Konum bilgisi alınıyor: CANIN  ECZANESİ
+2025-04-21 10:56:51,881 - INFO - Konum bulundu: CANIN  ECZANESİ - 39.99307, 32.89362
+2025-04-21 10:56:52,383 - INFO - Konum bilgisi alınıyor: CENNET ECZANESİ
+2025-04-21 10:56:52,995 - INFO - Konum bulundu: CENNET ECZANESİ - 39.94147, 34.03131
+2025-04-21 10:56:53,500 - INFO - Konum bilgisi alınıyor: ÇAĞLAYAN ECZANESİ
+2025-04-21 10:56:54,122 - INFO - Konum bulundu: ÇAĞLAYAN ECZANESİ - 39.89012, 32.68174
+2025-04-21 10:56:54,627 - INFO - Konum bilgisi alınıyor: ÇAKIRLAR ECZANESİ
+2025-04-21 10:56:55,322 - INFO - Konum bulundu: ÇAKIRLAR ECZANESİ - 39.99244, 32.70769
+2025-04-21 10:56:55,827 - INFO - Konum bilgisi alınıyor: ÇAMLIDERE ECZANESİ
+2025-04-21 10:56:56,446 - INFO - Konum bulundu: ÇAMLIDERE ECZANESİ - 39.98132, 32.80563
+2025-04-21 10:56:56,952 - INFO - Konum bilgisi alınıyor: ÇINAR ECZANESİ
+2025-04-21 10:56:57,533 - INFO - Konum bulundu: ÇINAR ECZANESİ - 39.98293, 32.77681
+2025-04-21 10:56:58,037 - INFO - Konum bilgisi alınıyor: ÇOKER  ECZANESİ
+2025-04-21 10:56:58,654 - INFO - Konum bulundu: ÇOKER  ECZANESİ - 39.94986, 32.5956
+2025-04-21 10:56:59,158 - INFO - Konum bilgisi alınıyor: DEMİRTEPE ARGUN ECZANESİ
+2025-04-21 10:56:59,822 - INFO - Konum bulundu: DEMİRTEPE ARGUN ECZANESİ - 39.92278, 32.84746
+2025-04-21 10:57:00,328 - INFO - Konum bilgisi alınıyor: EMNİYET ECZANESİ
+2025-04-21 10:57:00,965 - INFO - Konum bulundu: EMNİYET ECZANESİ - 39.99114, 32.59647
+2025-04-21 10:57:01,470 - INFO - Konum bilgisi alınıyor: ERDOĞAN ECZANESİ
+2025-04-21 10:57:02,075 - INFO - Konum bulundu: ERDOĞAN ECZANESİ - 40.47358, 32.6461
+2025-04-21 10:57:02,576 - INFO - Konum bilgisi alınıyor: ERKÖK ECZANESİ
+2025-04-21 10:57:03,198 - INFO - Konum bulundu: ERKÖK ECZANESİ - 40.22917, 33.03221
+2025-04-21 10:57:03,703 - INFO - Konum bilgisi alınıyor: EVREN ECZANESİ
+2025-04-21 10:57:04,281 - INFO - Konum bulundu: EVREN ECZANESİ - 39.02166, 33.80645
+2025-04-21 10:57:04,783 - INFO - Konum bilgisi alınıyor: GÖKÇE  ECZANESİ
+2025-04-21 10:57:05,349 - INFO - Konum bulundu: GÖKÇE  ECZANESİ - 40.01539, 32.33237
+2025-04-21 10:57:05,851 - INFO - Konum bilgisi alınıyor: GÜNEY ECZANESİ
+2025-04-21 10:57:06,481 - INFO - Konum bulundu: GÜNEY ECZANESİ - 39.96533, 32.7925
+2025-04-21 10:57:06,987 - INFO - Konum bilgisi alınıyor: HÜNER ECZANESİ
+2025-04-21 10:57:07,561 - INFO - Konum bulundu: HÜNER ECZANESİ - 39.89251, 32.85116
+2025-04-21 10:57:08,063 - INFO - Konum bilgisi alınıyor: İNAN ECZANESİ
+2025-04-21 10:57:08,659 - INFO - Konum bulundu: İNAN ECZANESİ - 40.15024, 31.90704
+2025-04-21 10:57:09,164 - INFO - Konum bilgisi alınıyor: KARAKEÇİLİ ECZANESİ
+2025-04-21 10:57:09,806 - INFO - Konum bulundu: KARAKEÇİLİ ECZANESİ - 39.59306, 33.37855
+2025-04-21 10:57:10,311 - INFO - Konum bilgisi alınıyor: KAVAKLIDERE PINAR ECZANESİ
+2025-04-21 10:57:10,919 - INFO - Konum bulundu: KAVAKLIDERE PINAR ECZANESİ - 39.90785, 32.85725
+2025-04-21 10:57:11,423 - INFO - Konum bilgisi alınıyor: KIRIKKALE ECZANESİ
+2025-04-21 10:57:12,003 - INFO - Konum bulundu: KIRIKKALE ECZANESİ - 39.84625, 33.50804
+2025-04-21 10:57:12,508 - INFO - Konum bilgisi alınıyor: KUMRU ECZANESİ
+2025-04-21 10:57:13,088 - INFO - Konum bulundu: KUMRU ECZANESİ - 39.9746, 32.82879
+2025-04-21 10:57:13,590 - INFO - Konum bilgisi alınıyor: KUZU ECZANESİ
+2025-04-21 10:57:14,235 - INFO - Konum bulundu: KUZU ECZANESİ - 39.94639, 32.62913
+2025-04-21 10:57:14,741 - INFO - Konum bilgisi alınıyor: MELİKE ECZANESİ
+2025-04-21 10:57:15,333 - INFO - Konum bulundu: MELİKE ECZANESİ - 39.43307, 32.49417
+2025-04-21 10:57:15,835 - INFO - Konum bilgisi alınıyor: MERKEZ ECZANESİ
+2025-04-21 10:57:16,430 - INFO - Konum bulundu: MERKEZ ECZANESİ - 39.79159, 32.81145
+2025-04-21 10:57:16,935 - INFO - Konum bilgisi alınıyor: MERT ECZANESİ
+2025-04-21 10:57:17,641 - INFO - Konum bulundu: MERT ECZANESİ - 39.67651, 33.60525
+2025-04-21 10:57:18,146 - INFO - Konum bilgisi alınıyor: MERT YAŞAM ECZANESİ
+2025-04-21 10:57:18,742 - INFO - Konum bulundu: MERT YAŞAM ECZANESİ - 39.85823, 32.65297
+2025-04-21 10:57:19,247 - INFO - Konum bilgisi alınıyor: MERVE ECZANESİ
+2025-04-21 10:57:20,102 - INFO - Konum bulundu: MERVE ECZANESİ - 39.58501, 32.14451
+2025-04-21 10:57:20,608 - INFO - Konum bilgisi alınıyor: MURAT ECZANESİ
+2025-04-21 10:57:21,179 - INFO - Konum bulundu: MURAT ECZANESİ - 40.18648, 31.35108
+2025-04-21 10:57:21,685 - INFO - Konum bilgisi alınıyor: NAR ECZANESİ
+2025-04-21 10:57:22,252 - INFO - Konum bulundu: NAR ECZANESİ - 39.89853, 33.03706
+2025-04-21 10:57:22,757 - INFO - Konum bilgisi alınıyor: NEZİH ECZANESİ
+2025-04-21 10:57:23,332 - INFO - Konum bulundu: NEZİH ECZANESİ - 39.93297, 32.87834
+2025-04-21 10:57:23,832 - INFO - Konum bilgisi alınıyor: NİHAL ECZANESİ
+2025-04-21 10:57:24,419 - INFO - Konum bulundu: NİHAL ECZANESİ - 39.87224, 32.86
+2025-04-21 10:57:24,920 - INFO - Konum bilgisi alınıyor: NUR ECZANESİ
+2025-04-21 10:57:25,607 - INFO - Konum bulundu: NUR ECZANESİ - 40.12816, 33.08789
+2025-04-21 10:57:26,112 - INFO - Konum bilgisi alınıyor: ÖVEÇLER CAN ECZANESİ
+2025-04-21 10:57:26,683 - INFO - Konum bulundu: ÖVEÇLER CAN ECZANESİ - 39.89092, 32.82894
+2025-04-21 10:57:27,187 - INFO - Konum bilgisi alınıyor: PAŞA ECZANESİ
+2025-04-21 10:57:27,818 - INFO - Konum bulundu: PAŞA ECZANESİ - 38.93925, 33.54348
+2025-04-21 10:57:28,322 - INFO - Konum bilgisi alınıyor: PINARBAŞI ECZANESİ
+2025-04-21 10:57:28,926 - INFO - Konum bulundu: PINARBAŞI ECZANESİ - 40.00805, 32.86693
+2025-04-21 10:57:29,432 - INFO - Konum bilgisi alınıyor: PURSAKLAR FATİH ECZANESİ
+2025-04-21 10:57:30,066 - INFO - Konum bulundu: PURSAKLAR FATİH ECZANESİ - 40.04157, 32.90806
+2025-04-21 10:57:30,567 - INFO - Konum bilgisi alınıyor: SAĞLIK ECZANESİ
+2025-04-21 10:57:31,186 - INFO - Konum bulundu: SAĞLIK ECZANESİ - 40.1112, 33.40943
+2025-04-21 10:57:31,687 - INFO - Konum bilgisi alınıyor: SARIASLAN ECZANESİ
+2025-04-21 10:57:32,294 - INFO - Konum bulundu: SARIASLAN ECZANESİ - 39.96616, 32.98096
+2025-04-21 10:57:32,799 - INFO - Konum bilgisi alınıyor: SEMA ECZANESİ
+2025-04-21 10:57:33,331 - INFO - Konum bulundu: SEMA ECZANESİ - 39.91062, 32.89825
+2025-04-21 10:57:33,836 - INFO - Konum bilgisi alınıyor: SOYDAN ECZANESİ
+2025-04-21 10:57:34,471 - INFO - Konum bulundu: SOYDAN ECZANESİ - 39.89554, 32.81112
+2025-04-21 10:57:34,976 - INFO - Konum bilgisi alınıyor: ÜMRAN ECZANESİ
+2025-04-21 10:57:35,600 - INFO - Konum bulundu: ÜMRAN ECZANESİ - 39.92221, 32.91417
+2025-04-21 10:57:36,106 - INFO - Konum bilgisi alınıyor: VERESELİ GÜDÜL ECZANESİ
+2025-04-21 10:57:36,691 - INFO - Konum bulundu: VERESELİ GÜDÜL ECZANESİ - 40.21026, 32.24474
+2025-04-21 10:57:37,193 - INFO - Konum bilgisi alınıyor: VERESELİ TEMELLİ ECZANESİ
+2025-04-21 10:57:37,746 - INFO - Konum bulundu: VERESELİ TEMELLİ ECZANESİ - 39.72772, 32.35631
+2025-04-21 10:57:38,247 - INFO - Konum bilgisi alınıyor: YELİZ ECZANESİ
+2025-04-21 10:57:38,802 - INFO - Konum bulundu: YELİZ ECZANESİ - 39.86849, 33.45501
+2025-04-21 10:57:39,308 - INFO - Konum bilgisi alınıyor: YENİ AKPLAZA ECZANESİ
+2025-04-21 10:57:39,904 - INFO - Konum bulundu: YENİ AKPLAZA ECZANESİ - 39.91385, 32.80565
+2025-04-21 10:57:40,409 - INFO - Konum bilgisi alınıyor: YENİ BALA ECZANESİ
+2025-04-21 10:57:41,036 - INFO - Konum bulundu: YENİ BALA ECZANESİ - 39.55305, 33.12388
+2025-04-21 10:57:41,536 - INFO - Konum bilgisi alınıyor: YENİ BARIŞ ECZANESİ
+2025-04-21 10:57:42,173 - WARNING - Sonuç bulunamadı: YENİ BARIŞ ECZANESİ
+2025-04-21 10:57:42,677 - INFO - Konum bilgisi alınıyor: YENİKENT YAŞAM ECZANESİ
+2025-04-21 10:57:43,264 - INFO - Konum bulundu: YENİKENT YAŞAM ECZANESİ - 40.01437, 32.53055
+2025-04-21 10:57:43,769 - INFO - Konum bilgisi alınıyor: YILDIRIM ECZANESİ
+2025-04-21 10:57:44,430 - INFO - Konum bulundu: YILDIRIM ECZANESİ - 39.95658, 32.61269
+2025-04-21 10:57:44,935 - INFO - Konum bilgisi alınıyor: YILMAZ ECZANESİ
+2025-04-21 10:57:45,532 - INFO - Konum bulundu: YILMAZ ECZANESİ - 39.99195, 33.17624
+2025-04-21 10:57:46,037 - INFO - Toplam 56 eczaneye konum bilgisi eklendi.
+2025-04-21 10:57:46,040 - INFO - Veriler 'EczaneData/20250421.json' dosyasına JSON formatında kaydedildi.
+2025-04-21 10:57:46,040 - INFO - Dosya konumu: /Users/actk/Downloads/BIL496-Project-Final/backend/EczaneData/20250421.json
+2025-04-21 10:57:46,342 - INFO - Veritabanındaki bugüne ait veriler silindi.
+2025-04-21 10:57:52,276 - INFO - Toplam 57 eczane veritabanına kaydedildi.
+2025-04-21 10:58:40,725 - INFO - Calling HERE API with params: {'apiKey': 'l2HM_7okDSKuQYLulnZWkg6rOpr4vmqF8ejc5lkA0E8', 'transportMode': 'car', 'origin': '39.892777355447215,32.81661530242473', 'destination': '39.89554,32.81112', 'departureTime': '2025-04-21T13:56:00', 'return': 'polyline,summary,actions,instructions', 'routingMode': 'fast', 'spans': 'names,length,duration,baseDuration', 'traffic': 'enabled'}
+2025-04-21 10:58:41,269 - INFO - HERE API call successful
+2025-04-21 10:58:41,269 - WARNING - Standard polyline decoding failed: string index out of range
+2025-04-21 10:58:41,269 - WARNING - Using fallback path for polyline decoding
+2025-04-21 10:59:09,777 - INFO - Calling HERE API with params: {'apiKey': 'l2HM_7okDSKuQYLulnZWkg6rOpr4vmqF8ejc5lkA0E8', 'transportMode': 'car', 'origin': '39.892777355447215,32.81661530242473', 'destination': '39.89554,32.81112', 'departureTime': '2025-04-21T13:56:00', 'return': 'polyline,summary,actions,instructions', 'routingMode': 'fast', 'spans': 'names,length,duration,baseDuration', 'traffic': 'enabled'}
+2025-04-21 10:59:10,348 - INFO - HERE API call successful
+2025-04-21 10:59:10,349 - WARNING - Standard polyline decoding failed: string index out of range
+2025-04-21 10:59:10,349 - WARNING - Using fallback path for polyline decoding
+2025-04-21 10:59:12,422 - INFO - /Users/actk/Downloads/BIL496-Project-Final/backend/pharmacy/views.py changed, reloading.

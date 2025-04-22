@@ -1,0 +1,36 @@
+services:
+  # Web uygulaması yapılandırması
+  - type: web
+    name: bil496-backend
+    env: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn map_project.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DEBUG
+        value: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bithub-db
+          property: connectionString
+      - key: GOOGLE_CHROME_BIN
+        value: "/usr/bin/google-chrome-stable"
+      - key: CHROMEDRIVER_PATH
+        value: "./bin/chromedriver"
+
+# Redis servisi artık kullanılmıyor, django-crontab ile değiştirildi
+# - type: redis
+#   name: redis-queue
+#   ipAllowList:
+#     - source: 0.0.0.0/0
+#       description: everywhere
+
+# PostgreSQL veritabanı
+databases:
+  - name: bithub-db
+    databaseName: bithub
+    user: admin
+    plan: free 

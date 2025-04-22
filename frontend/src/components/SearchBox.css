@@ -1,0 +1,218 @@
+.search-box {
+  position: relative;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 0 12px;
+  box-sizing: border-box;
+}
+
+.search-box:last-child {
+  margin-bottom: 0;
+}
+/* SearchBox.css */
+.search-box-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-box-container input {
+  flex: 1;
+  padding-right: 40px; /* Make space for the button */
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 15px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  box-sizing: border-box; /* Include padding and border in width */
+}
+
+.location-button {
+  position: absolute;
+  right: 8%;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  color: #5f6368;
+  transition: color 0.3s;
+}
+
+.location-button:hover {
+  color: #4285F4;
+  background-color: white;
+}
+
+.location-button svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #4285F4;
+  box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+}
+
+.loading-indicator {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 0.8rem;
+  color: #999;
+}
+
+/* Updated styles for search results container and cards */
+.search-results-container {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  max-height: 300px; /* Limit height */
+  overflow-y: auto; /* Enable scrolling */
+  z-index: 1001; /* Ensure it's above map controls */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.search-result-card {
+  display: flex; /* Use flexbox for layout */
+  justify-content: space-between; /* Space out content and button */
+  align-items: center; /* Vertically align items */
+  padding: 10px 15px;
+  border-bottom: 1px solid #eee; /* Separator line */
+  cursor: default; /* Default cursor for the card itself */
+}
+
+.search-result-card:last-child {
+  border-bottom: none;
+}
+
+.card-clickable-area {
+  flex-grow: 1; /* Allow text area to take available space */
+  cursor: pointer; /* Pointer cursor for clickable area */
+  margin-right: 10px; /* Space before the button */
+}
+
+.card-clickable-area:hover {
+  background-color: #f5f5f5; /* Slight hover effect */
+}
+
+.result-primary {
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 3px;
+}
+
+.result-secondary {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.favorite-button {
+  background: none;
+  border: none;
+  font-size: 1.2rem; /* Make star slightly larger */
+  cursor: pointer;
+  padding: 5px;
+  color: #aaa; /* Default star color (empty) */
+  transition: color 0.2s ease-in-out;
+}
+
+.favorite-button:hover {
+  color: #f0ad4e; /* Hover color (e.g., yellow/orange) */
+}
+
+/* Optional: Style for potentially filled star (if implemented later) */
+/*
+.favorite-button.favorited {
+  color: #f0ad4e;
+}
+*/
+
+/* Keep old .search-results styles if needed elsewhere, or remove if not */
+.search-results {
+  position: absolute;
+  top: 100%; 
+  left: 0;
+  right: 0;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-top: none;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.search-result-item {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.search-result-item:hover {
+  background-color: #f0f0f0;
+}
+
+.search-result-item.detailed {
+  /* Styles for detailed view if needed */
+}
+
+/* Mobile Responsive Styles */
+@media screen and (max-width: 768px) {
+  .search-box {
+    margin-bottom: 10px;
+    padding: 0 8px;
+  }
+
+  .search-input {
+    font-size: 16px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: white;
+    border: 1px solid #ddd;
+  }
+
+  .search-results {
+    position: absolute;
+    top: 100%;
+    left: 8px;
+    right: 8px;
+    max-height: 50vh;
+    margin: 0;
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+  }
+
+  .search-result-item {
+    padding: 14px 16px;
+    font-size: 15px;
+  }
+
+  .loading-indicator {
+    right: 20px;
+    font-size: 14px;
+  }
+}
+
+/* Handle iOS Safari issues */
+@supports (-webkit-touch-callout: none) {
+  .search-input {
+    font-size: 16px;
+  }
+} 

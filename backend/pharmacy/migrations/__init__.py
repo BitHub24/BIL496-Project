@@ -1,0 +1,3 @@
+"""
+Migrations for pharmacy app.
+""" 
