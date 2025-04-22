@@ -112,7 +112,6 @@ const Register = () => {
   const [passwordError, setPasswordError] = useState(false);
   const [shake, setShake] = useState(false);
   const [success, setSuccess] = useState(false);
-  const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -142,7 +141,7 @@ const Register = () => {
 
     try {
       const { confirmPassword, ...data } = formData;
-      const response = await fetch(`${BACKEND_API_URL}/api/users/register/`, {
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/users/register/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

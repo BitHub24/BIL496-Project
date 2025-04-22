@@ -74,10 +74,13 @@ export interface RouteResponse {
   routes: Array<{
     geometry: GeoJSON.Geometry;
   }>;
+  traffic_info?: any;
+  transit_info?: any;
 }
 
 export interface AddressComponent {
   long_name: string;
+  short_name: string;
   types: string[];
 }
 
@@ -93,6 +96,7 @@ export interface GeocodeResponse {
   status: string;
   results: GeocodeResult[];
 }
+
 export interface SearchResult {
   display_name: string;
   lat: string;
@@ -101,6 +105,7 @@ export interface SearchResult {
 
 export interface GoogleGeocodingResponse {
   results: {
+    address_components: AddressComponent[];
     formatted_address: string;
     geometry: {
       location: {
@@ -111,12 +116,14 @@ export interface GoogleGeocodingResponse {
   }[];
   status: string;
 }
+
 export interface SearchBoxProps {
   ref: React.Ref<SearchBoxRef>;
   placeholder: string;
   onLocationSelect: (lat: number, lng: number) => void;
   children?: React.ReactNode;
 }
+
 export interface SearchBoxRef {
   setQuery: (query: string) => void;
 }

@@ -1,18 +1,40 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import axios from 'axios';
 import './SearchBox.css';
-import { SearchBoxProps,SearchBoxRef, SearchResult, GoogleGeocodingResponse } from '../models/Models';
+import { 
+    SearchBoxProps, 
+    SearchBoxRef, 
+    SearchResult, 
+    GoogleGeocodingResponse, 
+    AddressComponent 
+} from '../models/Models';
 
+// SearchResult tipini genişletelim 
+interface ExtendedSearchResult extends SearchResult {
+  name?: string; 
+  street?: string;
+  street_number?: string;
+  district?: string; 
+  city?: string; 
+  full_address: string; 
+}
 
+// Yardımcı fonksiyon
+const findComponent = (components: AddressComponent[], type: string): string | undefined => {
+    return components.find(comp => comp.types.includes(type))?.long_name;
+};
 
-
-
-const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps>(({ placeholder, onLocationSelect, children }, ref) => {
+// forwardRef doğrudan kullanıldı, render fonksiyonu ayrılmadı
+const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps & { onFocus?: () => void }>((
+    { placeholder, onLocationSelect, children, onFocus }, 
+    ref
+) => {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<ExtendedSearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const searchBoxRef = useRef<HTMLDivElement>(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useImperativeHandle(ref, () => ({
     setQuery: (newQuery: string) => {
@@ -28,7 +50,6 @@ const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps>(({ placeholder, onLoc
         setShowResults(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
@@ -36,32 +57,45 @@ const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps>(({ placeholder, onLoc
   const searchAddress = async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
+      setShowResults(false);
       return;
     }
-  
     setIsLoading(true);
     try {
-      // Retrieve the Google API key from local storage
       const googleApiKey = localStorage.getItem('googleApiKey');
-      if (!googleApiKey) {
-        throw new Error('Google API key not found in local storage');
-      }
-  
-      const response = await axios.get<GoogleGeocodingResponse>('https://maps.googleapis.com/maps/api/geocode/json', {
-        params: {
-          address: `${searchQuery}, Ankara, Turkey`,
-          key: googleApiKey,
-          bounds: '32.5,39.7|33.2,40.1', // Ankara bounds
-        }
+      if (!googleApiKey) throw new Error('Google API key not found');
+      const response = await axios.get<GoogleGeocodingResponse>(
+          'https://maps.googleapis.com/maps/api/geocode/json',
+          {
+              params: { 
+                  address: `${searchQuery}, Ankara, Turkey`,
+                  key: googleApiKey,
+                  bounds: '32.5,39.7|33.2,40.1',
+               }
+          }
+      );
+      const searchResults: ExtendedSearchResult[] = response.data.results.map(item => {
+           const components = item.address_components;
+           const name = findComponent(components, 'establishment') || 
+                        findComponent(components, 'point_of_interest') || 
+                        findComponent(components, 'premise');
+           const street_number = findComponent(components, 'street_number');
+           const street = findComponent(components, 'route');
+           const district = findComponent(components, 'administrative_area_level_2');
+           const city = findComponent(components, 'locality') || findComponent(components, 'administrative_area_level_1');
+           const primaryName = name || (street && street_number ? `${street} ${street_number}` : street || item.formatted_address.split(',')[0]);
+           return {
+               display_name: item.formatted_address,
+               lat: item.geometry.location.lat.toString(),
+               lon: item.geometry.location.lng.toString(),
+               name: primaryName,
+               street: street,
+               street_number: street_number,
+               district: district,
+               city: city,
+               full_address: item.formatted_address
+           };
       });
-  
-      // Convert lat and lng to strings
-      const searchResults: SearchResult[] = response.data.results.map(item => ({
-        display_name: item.formatted_address,
-        lat: item.geometry.location.lat.toString(), // Convert to string
-        lon: item.geometry.location.lng.toString() // Convert to string
-      }));
-  
       setResults(searchResults);
       setShowResults(true);
     } catch (error) {
@@ -71,22 +105,38 @@ const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps>(({ placeholder, onLoc
       setIsLoading(false);
     }
   };
+  
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setQuery(value);
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
     if (value.length >= 3) {
-      searchAddress(value);
+      debounceTimeoutRef.current = setTimeout(() => {
+        searchAddress(value);
+      }, 500); 
     } else {
       setResults([]);
+      setShowResults(false);
     }
   };
 
-  const handleResultClick = (result: SearchResult) => {
-    setQuery(result.display_name.split(',')[0]); // Show only the first part of the address
-    onLocationSelect(parseFloat(result.lat), parseFloat(result.lon));
-    setShowResults(false);
+  const handleFocus = () => {
+    if (onFocus) onFocus();
+    if (results.length > 0) {
+        setShowResults(true);
+    }
   };
 
+  const handleResultClick = (item: ExtendedSearchResult) => {
+      setQuery(item.name || item.full_address.split(',')[0]); 
+      // onLocationSelect'i 3 argümanla çağır, tip hatasını 'as any' ile bastır
+      (onLocationSelect as any)(parseFloat(item.lat), parseFloat(item.lon), item.full_address);
+      setShowResults(false);
+  };
+
+  // JSX basitleştirildi: Sadece liste görünümü
   return (
     <div className="search-box" ref={searchBoxRef}>
       <input
@@ -95,24 +145,34 @@ const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps>(({ placeholder, onLoc
         onChange={handleSearch}
         placeholder={placeholder}
         className="search-input"
+        onFocus={handleFocus} 
       />
       {children}
       {isLoading && <div className="loading-indicator">Searching...</div>}
+      
+      {/* Basit liste görünümü (eski .search-results stilleri kullanılabilir) */}
       {showResults && results.length > 0 && (
-        <ul className="search-results">
+        <ul className="search-results"> 
           {results.map((result, index) => (
-            <li
-              key={index}
+            <li 
+              key={`search-${index}`} 
+              className="search-result-item" 
               onClick={() => handleResultClick(result)}
-              className="search-result-item"
             >
-              {result.display_name}
+              {result.name || result.full_address} 
+              {/* Yıldız butonu kaldırıldı */}
             </li>
           ))}
         </ul>
       )}
+      {/* No results mesajı */}
+       {showResults && results.length === 0 && query.length >= 3 && !isLoading && (
+            <ul className="search-results">
+                 <li className="no-results">No results found for "{query}".</li>
+            </ul>
+       )}
     </div>
   );
-});
+}); // forwardRef doğrudan burada biter
 
 export default SearchBox; 

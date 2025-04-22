@@ -1,0 +1,126 @@
+.transit-info-panel {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  padding: 15px;
+  margin-top: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.transit-info-panel h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 16px;
+  color: #333;
+}
+
+.transit-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.transit-section {
+  padding: 10px;
+  border-radius: 6px;
+  background-color: #f5f5f5;
+}
+
+.transit-section.transit {
+  background-color: #e3f2fd;
+}
+
+.transit-section.pedestrian {
+  background-color: #f1f8e9;
+}
+
+.transit-section-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.transit-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background-color: #4285F4;
+  border-radius: 50%;
+  padding: 4px;
+}
+
+.transit-icon svg {
+  fill: white;
+}
+
+.transit-details {
+  flex: 1;
+}
+
+.transit-line {
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+
+.transit-stops {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+}
+
+.transit-departure, .transit-arrival {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.transit-time {
+  font-weight: 500;
+  min-width: 60px;
+}
+
+.transit-place {
+  color: #555;
+}
+
+.transit-duration {
+  color: #666;
+  font-size: 12px;
+  margin: 3px 0;
+}
+
+/* Different colors for different transit modes */
+.transit-section.transit .transit-icon {
+  background-color: #4285F4;
+}
+
+.transit-section.pedestrian .transit-icon {
+  background-color: #34A853;
+}
+
+.transit-section.bicycle .transit-icon {
+  background-color: #FBBC05;
+}
+
+.transit-section.car .transit-icon {
+  background-color: #EA4335;
+}
+
+@media (max-width: 768px) {
+  .transit-info-panel {
+    max-height: 250px;
+  }
+  
+  .transit-section-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .transit-icon {
+    margin-bottom: 5px;
+  }
+}
