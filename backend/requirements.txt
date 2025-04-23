@@ -59,3 +59,5 @@ django-debug-toolbar==4.3.0
 
 # Arka plan görevleri için
 django-background-tasks
+
+django-extensions # Yeni eklendi

@@ -6,7 +6,8 @@ import os
 import logging
 from django.conf import settings
 import glob
-from background_task import background # Arka plan görevi için import
+import tempfile # Geçici dosya için
+# from background_task import background # Bu satırı kaldıracağız veya yorum satırı yapacağız
 
 # Veri dizini
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'traffic_data', 'data')
@@ -28,9 +29,9 @@ def get_timestamp_filename():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return f"traffic_data_{timestamp}.json"
 
-@background(schedule=0) # Arka plan görevi olarak işaretle
+# @background(schedule=10) # Bu dekoratörü kaldırıyoruz
 def collect_traffic_data():
-    """HERE Maps API'den trafik verilerini topla"""
+    """HERE Maps API'den trafik verilerini topla ve atomik olarak kaydet."""
     
     api_key = getattr(settings, 'HERE_API_KEY', None)
     if not api_key:
@@ -45,38 +46,56 @@ def collect_traffic_data():
         "return": "description,currentFlow,freeFlow"
     }
 
+    tmp_filepath = None # Geçici dosya yolu
     try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        data = response.json()
+        response = requests.get(url, params=params, timeout=30) # Timeout ekleyelim
+        response.raise_for_status() # HTTP hatalarını kontrol et
+        
+        try:
+            data = response.json() # JSON parse etmeyi dene
+        except json.JSONDecodeError as json_err:
+             logging.error(f"API'den gelen yanıt JSON formatında değil: {json_err}. Yanıt içeriği (ilk 500 karakter): {response.text[:500]}")
+             return False # Hatalı JSON ile devam etme
+
         data['timestamp'] = datetime.now().isoformat()
         
         ensure_data_directory()
         filename = get_timestamp_filename()
         filepath = os.path.join(DATA_DIR, filename)
         
-        with open(filepath, 'w', encoding='utf-8') as f:
+        # --- Atomik Yazma Başlangıcı ---
+        # Geçici bir dosya oluştur (aynı dizinde, .tmp uzantılı)
+        # NamedTemporaryFile kullanmak yerine elle yönetmek rename için daha güvenli olabilir.
+        tmp_filepath = filepath + f".{os.getpid()}.tmp" # İşlem ID'si ile eşsizleştir
+        
+        logging.info(f"Writing data to temporary file: {os.path.basename(tmp_filepath)}")
+        with open(tmp_filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+            # Yazma işleminin tamamlandığından emin olmak için dosyayı flush et ve kapat (with bloğu bunu yapar)
+        
+        # Yazma başarılıysa, geçici dosyayı asıl dosya adıyla değiştir
+        logging.info(f"Renaming temporary file to final file: {filename}")
+        os.rename(tmp_filepath, filepath)
+        tmp_filepath = None # Başarıyla yeniden adlandırıldı, artık silmeye gerek yok
+        # --- Atomik Yazma Sonu ---
             
         logging.info(f"Trafik verisi başarıyla kaydedildi: {filename}")
 
-        # --- Eski Dosyaları Temizleme Mantığı --- 
+        # --- Eski Dosyaları Temizleme Mantığı (Başarılı yazmadan sonra) --- 
         try:
             all_files = glob.glob(os.path.join(DATA_DIR, "traffic_data_*.json"))
-            # En son oluşturulan dosyayı koru, diğerlerini sil
-            if len(all_files) > 1: # En az 2 dosya varsa temizlik yap
-                # Dosyaları oluşturulma zamanına göre sırala (en yeni en sonda)
+            if len(all_files) > 1:
                 all_files.sort(key=os.path.getctime)
-                # Silinecek dosyalar (en yeni hariç hepsi)
-                files_to_delete = all_files[:-1]
+                files_to_delete = all_files[:-1] # En yeni hariç
                 deleted_count = 0
                 for old_file in files_to_delete:
-                    try:
-                        os.remove(old_file)
-                        logging.info(f"Eski trafik dosyası silindi: {os.path.basename(old_file)}")
-                        deleted_count += 1
-                    except OSError as e:
-                        logging.error(f"Eski dosya silinemedi ({os.path.basename(old_file)}): {e}")
+                    if old_file != filepath: # Yeni oluşturulan dosyayı silme
+                        try:
+                            os.remove(old_file)
+                            logging.info(f"Eski trafik dosyası silindi: {os.path.basename(old_file)}")
+                            deleted_count += 1
+                        except OSError as e:
+                            logging.error(f"Eski dosya silinemedi ({os.path.basename(old_file)}): {e}")
                 if deleted_count > 0:
                      logging.info(f"Toplam {deleted_count} eski trafik dosyası silindi.")
         except Exception as clean_e:
@@ -85,6 +104,19 @@ def collect_traffic_data():
 
         return True
         
+    except requests.exceptions.RequestException as req_err:
+        # Ağ veya API isteği hataları
+        logging.error(f"API isteği hatası: {req_err}")
+        return False
     except Exception as e:
-        logging.error(f"Veri toplama hatası: {str(e)}")
-        return False 
+        # Diğer beklenmedik hatalar (örn. dosya yazma, rename)
+        logging.exception(f"Veri toplama sırasında beklenmedik hata") # exception ile traceback loglanır
+        return False
+    finally:
+        # Eğer işlem hata verirse ve geçici dosya kaldıysa sil
+        if tmp_filepath and os.path.exists(tmp_filepath):
+            try:
+                os.remove(tmp_filepath)
+                logging.warning(f"Hata nedeniyle geçici dosya silindi: {os.path.basename(tmp_filepath)}")
+            except OSError as e:
+                logging.error(f"Hata sonrası geçici dosya silinemedi ({os.path.basename(tmp_filepath)}): {e}") 

@@ -3,7 +3,7 @@ import json
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status # status import'u eklendi
-from datetime import datetime
+from datetime import datetime, timedelta # timedelta eklendi (opsiyonel yaş kontrolü için)
 import glob
 from django.conf import settings
 from .collector import DATA_DIR, collect_traffic_data # Arka plan görevi import edildi
@@ -15,57 +15,61 @@ def transform_here_to_geojson(here_data):
     """HERE API flow verisini GeoJSON FeatureCollection'a dönüştürür."""
     features = []
     if not here_data or 'results' not in here_data:
-        logger.warning("HERE data is missing 'results' key.")
+        logger.warning("HERE data is missing 'results' key or is empty.")
         return {"type": "FeatureCollection", "features": features}
 
-    for result in here_data.get('results', []):
+    results = here_data.get('results', [])
+    if not results:
+        logger.warning("HERE data 'results' list is empty.")
+        return {"type": "FeatureCollection", "features": features}
+        
+    for result in results:
         try:
             location = result.get('location')
             current_flow = result.get('currentFlow')
-            free_flow = result.get('freeFlow')
+            free_flow = result.get('freeFlow') # freeFlow olmayabilir
+            
+            if not location or not current_flow:
+                 logger.warning(f"Skipping result due to missing location or currentFlow: {result}")
+                 continue
+                 
             shape = location.get('shape')
-
-            if not location or not current_flow or not shape or not shape.get('links'):
-                logger.warning(f"Skipping result due to missing data: {result.get('location', {}).get('description')}")
+            if not shape or not shape.get('links'):
+                logger.warning(f"Skipping result due to missing shape links: {location.get('description')}")
                 continue
 
-            # Tüm linklerdeki noktaları birleştir (GeoJSON LngLat formatında)
             coordinates = []
             for link in shape.get('links', []):
                 points = link.get('points', [])
-                # İlk nokta hariç diğer linklerin ilk noktasını atla (tekrarlamamak için)
                 start_index = 1 if len(coordinates) > 0 and len(points) > 0 else 0 
                 for point in points[start_index:]:
                     if 'lng' in point and 'lat' in point:
-                         coordinates.append([point['lng'], point['lat']]) # Önce Lng, sonra Lat
+                         if -180 <= point['lng'] <= 180 and -90 <= point['lat'] <= 90:
+                             coordinates.append([point['lng'], point['lat']]) 
+                         else:
+                             logger.warning(f"Skipping invalid coordinate point: lng={point.get('lng')}, lat={point.get('lat')}")
             
             if not coordinates:
-                logger.warning(f"Skipping result with no valid coordinates: {location.get('description')}")
+                logger.warning(f"Skipping result with no valid coordinates after processing: {location.get('description')}")
                 continue
 
-            # Trafik yoğunluğunu belirle (jamFactor veya hız karşılaştırması)
             severity = 'unknown'
             jam_factor = current_flow.get('jamFactor')
             current_speed = current_flow.get('speed')
             free_flow_speed = free_flow.get('speed') if free_flow else None
             
-            if jam_factor is not None: # 0-10 arası varsayılıyor HERE API için
-                if jam_factor >= 8.0:
-                    severity = 'high'
-                elif jam_factor >= 4.0:
-                    severity = 'medium'
-                else:
-                    severity = 'low'
+            if jam_factor is not None: 
+                if jam_factor >= 8.0: severity = 'high'
+                elif jam_factor >= 4.0: severity = 'medium'
+                else: severity = 'low'
             elif current_speed is not None and free_flow_speed is not None and free_flow_speed > 0:
                 ratio = current_speed / free_flow_speed
-                if ratio < 0.4: # %40'ın altı
-                    severity = 'high'
-                elif ratio < 0.7: # %70'in altı
-                    severity = 'medium'
-                else:
-                    severity = 'low'
+                if ratio < 0.4: severity = 'high'
+                elif ratio < 0.7: severity = 'medium'
+                else: severity = 'low'
+            elif current_speed is not None and current_speed < 10: 
+                 severity = 'high'
 
-            # GeoJSON Feature oluştur
             feature = {
                 "type": "Feature",
                 "geometry": {
@@ -83,60 +87,111 @@ def transform_here_to_geojson(here_data):
             }
             features.append(feature)
         except Exception as e:
-            logger.error(f"Error processing HERE result: {e}", exc_info=True)
-            # Bir sonuçta hata olsa bile devam etmeye çalış
+            logger.error(f"Error processing HERE result item: {e}", exc_info=True)
             continue
             
     return {"type": "FeatureCollection", "features": features}
 
+# --- Helper function to find the latest valid traffic file ---
+def find_latest_traffic_file(data_dir, max_age_minutes=15):
+    """Verilen dizindeki belirli bir süreden eski olmayan en son 'traffic_data_*.json' dosyasını bulur."""
+    data_files = glob.glob(os.path.join(data_dir, "traffic_data_*.json"))
+    if not data_files:
+        return None
+    latest_file = None
+    try:
+        potential_latest = max(data_files, key=os.path.getmtime) 
+        file_mod_time = datetime.fromtimestamp(os.path.getmtime(potential_latest))
+        if datetime.now() - file_mod_time < timedelta(minutes=max_age_minutes):
+            latest_file = potential_latest
+        else:
+             logger.info(f"Latest file {os.path.basename(potential_latest)} is older than {max_age_minutes} minutes.")
+    except Exception as e:
+        logger.error(f"Error finding/checking latest traffic file: {e}")
+    return latest_file
+
 @api_view(['GET'])
 def get_latest_traffic_data(request):
-    """En son toplanan trafik verilerini GeoJSON formatında getirir."""
+    """En son toplanan trafik verilerini GeoJSON formatında getirir.
+    Veri yoksa veya eski ise senkron olarak toplamayı tetikler."""
+    latest_file = None
     try:
-        data_files = glob.glob(os.path.join(DATA_DIR, "traffic_data_*.json"))
-        if not data_files:
-            logger.info("No traffic data files found. Triggering background collection task.")
-            # Arka plan görevini tetikle
-            collect_traffic_data()
-            # Frontend'e işlemin başladığını bildir
-            return Response({"message": "Trafik verisi toplama işlemi başlatıldı. Lütfen birkaç dakika sonra tekrar deneyin."}, 
-                            status=status.HTTP_202_ACCEPTED) # 202 Accepted döndür
-        
-        latest_file = max(data_files, key=os.path.getctime)
-        logger.info(f"Reading latest traffic data file: {os.path.basename(latest_file)}")
-        
-        with open(latest_file, 'r', encoding='utf-8') as f:
-            # Ham HERE verisini oku
-            raw_traffic_data = json.load(f)
-        
-        # HERE verisini GeoJSON'a dönüştür
+        # --- Mevcut ve yeterince yeni bir dosya var mı kontrol et ---
+        latest_file = find_latest_traffic_file(DATA_DIR, max_age_minutes=15) # 15 dakikadan yeni dosya ara
+
+        # --- Eğer uygun dosya yoksa, senkron olarak topla ---
+        if not latest_file:
+            logger.info("No recent traffic data file found. Triggering synchronous collection.")
+            try:
+                # Veriyi senkron olarak topla
+                collect_traffic_data()
+                logger.info("Synchronous data collection finished. Attempting to find the new file.")
+                # Dosyayı tekrar ara (yaş kontrolü olmadan)
+                data_files = glob.glob(os.path.join(DATA_DIR, "traffic_data_*.json"))
+                if not data_files:
+                     logger.error("Traffic data file still not found after synchronous collection attempt.")
+                     return Response({"error": "Trafik verisi toplanamadı veya kaydedilemedi."},
+                                     status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                latest_file = max(data_files, key=os.path.getctime)
+
+            except Exception as collect_error:
+                logger.exception("Error during synchronous traffic data collection")
+                return Response({"error": f"Trafik verisi toplama sırasında hata oluştu: {collect_error}"},
+                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # --- Dosyayı işle ---
+        if not latest_file or not os.path.exists(latest_file):
+             logger.error(f"File {latest_file} cannot be found or accessed.")
+             return Response({"error": "Trafik veri dosyası bulunamadı."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        logger.info(f"Processing traffic data file: {os.path.basename(latest_file)}")
+
+        try:
+            with open(latest_file, 'r', encoding='utf-8') as f:
+                raw_traffic_data = json.load(f)
+        except json.JSONDecodeError as jde:
+            logger.error(f"Error decoding JSON from file {os.path.basename(latest_file)}: {jde}")
+            # ÖNEMLİ: Bozuk dosyayı silmeyi deneyebiliriz.
+            try:
+                os.remove(latest_file)
+                logger.warning(f"Deleted corrupted file: {os.path.basename(latest_file)}")
+            except OSError as del_err:
+                logger.error(f"Could not delete corrupted file {os.path.basename(latest_file)}: {del_err}")
+            return Response({"error": f"Bozuk trafik veri dosyası bulundu ve silindi: {os.path.basename(latest_file)}. Lütfen tekrar deneyin."},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except Exception as read_err:
+            logger.exception(f"Error reading file {os.path.basename(latest_file)}")
+            return Response({"error": f"Trafik dosyası okunamadı: {os.path.basename(latest_file)}"},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         logger.info("Transforming HERE data to GeoJSON...")
         geojson_data = transform_here_to_geojson(raw_traffic_data)
-        logger.info(f"Transformation complete. GeoJSON feature count: {len(geojson_data['features'])}")
-        
+        feature_count = len(geojson_data.get('features', []))
+        logger.info(f"Transformation complete. GeoJSON feature count: {feature_count}")
+
+        if feature_count == 0:
+             logger.warning(f"GeoJSON transformation resulted in 0 features for file {os.path.basename(latest_file)}.")
+
         filename = os.path.basename(latest_file)
-        collection_time_str = filename.replace('traffic_data_', '').replace('.json', '')
-        
+        try:
+            timestamp_str = filename.split('_')[2] + "_" + filename.split('_')[3].split('.')[0]
+            collection_time = datetime.strptime(timestamp_str, '%Y%m%d_%H%M%S')
+            collection_time_str = collection_time.strftime('%Y-%m-%d %H:%M:%S')
+        except (IndexError, ValueError):
+             logger.warning(f"Could not parse timestamp from filename: {filename}")
+             collection_time_str = "unknown"
+
         response_data = {
             "meta": {
                 "collection_time": collection_time_str,
-                "file_path": latest_file, # Sadece debug için
-                "geojson_feature_count": len(geojson_data['features'])
-                # Diğer meta veriler eklenebilir
+                "geojson_feature_count": feature_count
             },
-            # Dönüştürülmüş GeoJSON'u gönder
-            "data": geojson_data 
+            "data": geojson_data
         }
-        
-        return Response(response_data)
-        
-    except json.JSONDecodeError as jde:
-        # latest_file değişkeni sadece data_files bulunduğunda tanımlanır.
-        # Hatanın oluştuğu dosya adını loglamak için kontrol ekleyelim.
-        error_file_msg = f" from file {os.path.basename(latest_file)}" if 'latest_file' in locals() else ""
-        logger.error(f"Error decoding JSON{error_file_msg}: {jde}")
-        error_filename = os.path.basename(latest_file) if 'latest_file' in locals() else "bilinmeyen bir dosya"
-        return Response({"error": f"Bozuk trafik veri dosyası bulundu: {error_filename}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return Response(response_data, status=status.HTTP_200_OK)
+
     except Exception as e:
         logger.exception("An unexpected error occurred in get_latest_traffic_data")
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 
+        return Response({"error": f"Beklenmedik bir sunucu hatası oluştu: {e}"},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR) 
