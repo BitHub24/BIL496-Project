@@ -307,3 +307,61 @@ cython_debug/
 .ionide
 
 # Support for Project snippet scope
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.Python
+*.egg-info/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environment
+.venv/
+venv/
+env/
+ENV/
+pipenv-venv/
+*.venv
+
+# Django
+db.sqlite3
+db.sqlite3-journal
+*.log
+local_settings.py
+
+# Project Specific
+backend/logs/
+backend/traffic_data/data/
+backend/data/*.graphml
+
+# Node / Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json # Eğer yarn.lock kullanılıyorsa bu satırı kaldırın veya tam tersi
+yarn.lock         # Eğer package-lock.json kullanılıyorsa bu satırı kaldırın veya tam tersi
+dist/             # Derlenmiş frontend dosyaları
+
+# Environment variables
+.env
+.env.*
+*.env
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*~
