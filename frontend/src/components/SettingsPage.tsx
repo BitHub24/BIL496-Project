@@ -103,15 +103,32 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
 
   // Fetch user data (address state update kaldırıldı)
   const fetchUserProfile = useCallback(async () => {
+    console.log('[fetchUserProfile] Function called.'); // Log 1: Fonksiyon çağrıldı mı?
     const token = localStorage.getItem("token");
+    console.log('[fetchUserProfile] Token from localStorage:', token); // Log 2: Token var mı?
+    
+    if (!token) {
+        console.warn('[fetchUserProfile] No token found. Aborting fetch.');
+        toast.error('Authentication required. Please log in.');
+        // İsteğe bağlı: Zaten yüklenmiş olabilecek eski verileri temizle
+        setUsername('');
+        setEmail('');
+        setFirstName('');
+        setLastName('');
+        setPhoneNumber('');
+        return; // Token yoksa devam etme
+    }
+
     try {
+      console.log('[fetchUserProfile] Attempting to fetch profile data...'); // Log 3: API isteği yapılıyor mu?
       const response = await axios.get(
         `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/users/profile/`,
         {
           headers: { Authorization: `Token ${token}` },
         }
       );
-      console.log('[API Response] User Data:', response.data);
+      console.log('[API Response] User Data:', response.data); // Bu log zaten vardı
+      console.log('[API Response] Status Code:', response.status); // Log 4: Yanıt kodu
       
       if (response.data) {
         const userData = response.data;
@@ -125,8 +142,21 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
         console.error('API response format is incorrect or missing data');
         toast.error('Failed to parse user profile data');
       }
-    } catch (error) {
-      console.error('Error fetching user data:', error);
+    } catch (error: any) {
+      console.error('Error fetching user data:', error); // Bu log zaten vardı
+      // Daha detaylı hata logları
+      if (error.response) {
+        // İstek yapıldı ve sunucu 2xx dışında bir durum koduyla yanıt verdi
+        console.error('[fetchUserProfile Error] Response Status:', error.response.status);
+        console.error('[fetchUserProfile Error] Response Data:', error.response.data);
+        console.error('[fetchUserProfile Error] Response Headers:', error.response.headers);
+      } else if (error.request) {
+        // İstek yapıldı ancak yanıt alınamadı
+        console.error('[fetchUserProfile Error] No response received:', error.request);
+      } else {
+        // İsteği ayarlarken bir şeyler oldu
+        console.error('[fetchUserProfile Error] Request setup error:', error.message);
+      }
       toast.error('Failed to load user profile');
     }
   }, []);
@@ -197,6 +227,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
       toast.error('Failed to load favorite locations');
     }
   }, []);
+
+  // Component mount edildiğinde verileri çek
+  useEffect(() => {
+    console.log('[useEffect Mount] Fetching initial data...');
+    fetchUserProfile();
+    fetchPreferences();
+    fetchProfiles();
+    fetchFavorites();
+  }, [fetchUserProfile, fetchPreferences, fetchProfiles, fetchFavorites]); // useCallback'ten dönen fonksiyonları ekle
 
   // Update password
   const handleUpdatePassword = async (e: React.FormEvent) => {
