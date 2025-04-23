@@ -3,3 +3,6 @@
 .venv
 .env
 .traffic_data
+__pycache__
+*.graphml
+/logs

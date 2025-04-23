@@ -214,7 +214,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       }
       
       const response = await axios.get<CheckStatusResponse>(
-        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/pharmacies/check-today/`,
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/pharmacies/check-today/`,
         {
           headers: {
             'Authorization': `Token ${token}`
@@ -442,7 +442,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
     setLoadingPharmacies(true);
     const today = new Date().toISOString().split("T")[0]; // Format date as YYYY-MM-DD
     //const apiUrl = `/api/pharmacies/nearest/?lat=${source?.lat}&lng=${source?.lng}`;
-    const apiUrl = `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/pharmacies/nearest/?lat=${source?.lat}&lng=${source?.lng}&date=${today}`;
+    const apiUrl = `${import.meta.env.VITE_BACKEND_API_URL}/api/pharmacies/nearest/?lat=${source?.lat}&lng=${source?.lng}&date=${today}`;
 
     try {
       const token = localStorage.getItem('token');
@@ -608,7 +608,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       const favTag = favTagInput || null;
       try {
           const response = await axios.post(
-              `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/users/favorites/`,
+              `${import.meta.env.VITE_BACKEND_API_URL}/api/users/favorites/`,
               { name: favName, address: address, latitude: lat, longitude: lng, tag: favTag },
               { headers: { 'Authorization': `Token ${token}` } }
           );
@@ -796,7 +796,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       
       try {
           const requestData: any = { start, end, transport_mode: transportMode }; // Başlangıç modu gönderilir
-          const endpoint = `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/directions/route/`;
+          const endpoint = `${import.meta.env.VITE_BACKEND_API_URL}/api/directions/route/`;
 
           const response = await axios.post<RouteResponse>(
               endpoint,
@@ -982,7 +982,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
     setLoadingWifi(true);
     try {
       const token = localStorage.getItem('token'); // Add token if required by backend
-      const response = await axios.get<WiFiPoint[]>(`${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/wifi-points/`, {
+      const response = await axios.get<WiFiPoint[]>(`${import.meta.env.VITE_BACKEND_API_URL}/api/wifi-points/`, {
         headers: token ? { 'Authorization': `Token ${token}` } : {}
       });
       // Map backend data to PointOfInterest structure
@@ -1011,7 +1011,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
     setLoadingBicycle(true);
     try {
       const token = localStorage.getItem('token'); // Add token if required by backend
-      const response = await axios.get<BicyclePoint[]>(`${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/bicycle-points/`, {
+      const response = await axios.get<BicyclePoint[]>(`${import.meta.env.VITE_BACKEND_API_URL}/api/bicycle-points/`, {
         headers: token ? { 'Authorization': `Token ${token}` } : {}
       });
       // Map backend data to PointOfInterest structure

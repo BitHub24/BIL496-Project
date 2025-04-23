@@ -167,7 +167,7 @@ const MapStylesControl: React.FC<MapStylesControlProps> = ({ map, isOpen, onTogg
 
     try {
         const response = await axios.get<TrafficApiResponse>(
-            `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/traffic/latest/`,
+            `${import.meta.env.VITE_BACKEND_API_URL}/api/traffic/latest/`,
             { 
                 headers: { 'Authorization': `Token ${token}` } // Use the token variable we already fetched
             }
@@ -181,6 +181,7 @@ const MapStylesControl: React.FC<MapStylesControlProps> = ({ map, isOpen, onTogg
         console.log('[Traffic] Data received, creating GeoJSON layer.');
         if (!response.data || !response.data.data || !response.data.data.features) {
             console.error('[Traffic] Invalid GeoJSON data received from API.');
+            console.log('Response:', response.data);
             setTrafficError('Invalid traffic data format.');
             setTrafficLayer(null); 
             return;

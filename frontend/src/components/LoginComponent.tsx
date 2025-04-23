@@ -181,7 +181,7 @@ const Login = () => {
   const [success] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const BACKEND_API_URL = import.meta.env.VITE_REACT_APP_BACKEND_API_URL;
+  const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
