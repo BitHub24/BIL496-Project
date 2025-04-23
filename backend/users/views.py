@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.models import User
-from .serializers import RegisterSerializer, UserSerializer, LoginSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer, FavoriteLocationSerializer, UserProfileSerializer
+from .serializers import GoogleAuthSerializer, RegisterSerializer, UserSerializer, LoginSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer, FavoriteLocationSerializer, UserProfileSerializer
 from .models import UserProfile, FavoriteLocation
 from django.conf import settings
 import uuid
@@ -73,6 +73,26 @@ class LoginView(APIView):
             'here_api_key':settings.HERE_API_KEY,
             'google_api_key':settings.GOOGLE_API_KEY
         })
+class GoogleAuthView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = GoogleAuthSerializer
+    permission_classes = [permissions.AllowAny]  # Herkesin erişebilmesi için
+    
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        
+        created = getattr(serializer, '_created', False)
+
+        token, _ = Token.objects.get_or_create(user=user)
+        user_serializer = UserSerializer(user)
+
+        return Response({
+            'user': user_serializer.data,
+            'token': token.key
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
 
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]

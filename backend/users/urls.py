@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    RegisterView, LoginView, LogoutView, UserDetailView,
+    GoogleAuthView, RegisterView, LoginView, LogoutView, UserDetailView,
     PasswordResetRequestView, PasswordResetConfirmView,
     FavoriteLocationViewSet, UserProfileView, PasswordResetVerifyTokenView
 )
@@ -12,6 +12,7 @@ router.register(r'favorites', FavoriteLocationViewSet, basename='favoritelocatio
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', LoginView.as_view(), name='login'),
+    path('google-auth/', GoogleAuthView.as_view(), name='google-auth'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('user/', UserDetailView.as_view(), name='user-detail'),
     path('profile/', UserProfileView.as_view(), name='user-profile'),
