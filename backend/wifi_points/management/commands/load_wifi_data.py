@@ -3,7 +3,6 @@ from django.core.management.base import BaseCommand
 from django.conf import settings
 import os
 from wifi_points.models import WiFiPoint
-from django.contrib.gis.geos import Point
 
 class Command(BaseCommand):
     help = 'Loads WiFi points data from GeoJSON file into the database'

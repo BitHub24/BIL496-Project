@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
 from django.db import transaction
-from django.contrib.gis.geos import LineString
+import json
 from .models import RoadSegment, UserRoadPreference, RoutePreferenceProfile
 from .serializers import RoadSegmentSerializer, UserRoadPreferenceSerializer, RoutePreferenceProfileSerializer
 
@@ -57,9 +57,15 @@ class RoadSegmentViewSet(viewsets.ModelViewSet):
             )
             
         try:
-            # Create LineString from coordinates
-            line_string = LineString(coordinates)
-            
+            # Convert coordinates to GeoJSON LineString string
+            geometry_geojson_string = None
+            if coordinates:
+                geometry_geojson = {
+                    "type": "LineString",
+                    "coordinates": coordinates
+                }
+                geometry_geojson_string = json.dumps(geometry_geojson)
+
             # Create or update road segment
             road_segment, created = RoadSegment.objects.update_or_create(
                 osm_id=osm_id,
@@ -68,7 +74,7 @@ class RoadSegmentViewSet(viewsets.ModelViewSet):
                     'road_type': road_type,
                     'start_node': start_node,
                     'end_node': end_node,
-                    'geometry': line_string
+                    'geometry': geometry_geojson_string
                 }
             )
             

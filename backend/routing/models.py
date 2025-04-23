@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.gis.db import models as gis_models
+# from django.contrib.gis.db import models # Yorum satırı temizlendi
 
 class RoadSegment(models.Model):
     """Model representing a road segment that can be preferred or avoided."""
@@ -8,7 +8,8 @@ class RoadSegment(models.Model):
     road_type = models.CharField(max_length=50, blank=True, verbose_name="Road Type")
     start_node = models.BigIntegerField(verbose_name="Start Node ID")
     end_node = models.BigIntegerField(verbose_name="End Node ID")
-    geometry = gis_models.LineStringField(verbose_name="Road Geometry")
+    # geometry = gis_models.LineStringField(verbose_name="Road Geometry") # Eski alan
+    geometry = models.TextField(blank=True, null=True, verbose_name="Road Geometry (GeoJSON)") # TextField olarak değiştirildi
     
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
