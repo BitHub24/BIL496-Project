@@ -2,7 +2,7 @@
 .venv311
 .venv
 .env
-.traffic_data
+/traffic_data
 __pycache__
 *.graphml
 /logs
