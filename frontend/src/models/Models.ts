@@ -91,15 +91,35 @@ export interface CheckStatusResponse {
 
 // --- Responses needing more precise definition based on backend --- 
 
-// Route Response (Assuming GeoJSON-like geometry)
-// This might need adjustment based on your actual routing API response
+// Route Response (Backend A* yanıtına göre güncellendi)
+// Bu yapı backend'deki DirectionsView'da oluşturulan yanıta uymalı
+export interface RouteLeg {
+  steps: any[]; // Adım adım tarif için (şimdilik any)
+  summary: string;
+  weight: number;
+  duration: number;
+  distance: number;
+}
+
+export interface Route {
+  geometry: any; // GeoJSON LineString olmalı
+  legs: RouteLeg[];
+  weight_name?: string; // Opsiyonel olabilir
+  weight: number;
+  duration: number; // Başlangıç moduna ait süre
+  distance: number;
+  durations_by_mode?: { // Tüm modların süreleri (yeni)
+    driving: number | null;
+    walking: number | null;
+    cycling: number | null;
+  }; 
+}
+
 export interface RouteResponse {
-  routes: Array<{
-    geometry: any; // Use 'any' or a proper GeoJSON Geometry type if installed
-    // Include other route properties like duration, distance, steps if available
-  }>;
-  transit_info?: any; // Structure depends on your transit API
-  // Add other top-level fields if any
+  routes: Route[];
+  transit_info?: any; // Transit modu için (varsa)
+  // waypoints?: any[]; // Gerekirse eklenebilir
+  // code?: string; // Gerekirse eklenebilir
 }
 
 // Geocode Response (Assuming a list of items with position)

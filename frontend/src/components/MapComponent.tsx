@@ -4,6 +4,8 @@ import axios from 'axios';
 import './MapComponent.css';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet-compass/dist/leaflet-compass.min.css';
+import 'leaflet-compass';
 import { toast } from 'sonner';
 import {
   Coordinate,
@@ -120,6 +122,10 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   const [activeInput, setActiveInput] = useState<'source' | 'destination'>('destination');
   const [loadingPharmacies, setLoadingPharmacies] = useState<boolean>(false);
   const [loadingRoute, setLoadingRoute] = useState<boolean>(false);
+  const [routeInfo, setRouteInfo] = useState<{ 
+      distance: number | null; 
+      durations: { [mode: string]: number | null }; 
+  } | null>(null);
   const [wifiPoints, setWifiPoints] = useState<PointOfInterest[]>([]);
   const [bicyclePoints, setBicyclePoints] = useState<PointOfInterest[]>([]);
   const [showWifi, setShowWifi] = useState<boolean>(false);
@@ -157,10 +163,25 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       attribution: '© OpenStreetMap contributors'
     }).addTo(mapInstance);
 
-    // Add zoom control to bottom left (Konum değiştirildi)
+    // Add zoom control to bottom left
     L.control.zoom({
       position: 'bottomleft'
     }).addTo(mapInstance);
+
+    // --- Pusula Kontrolü Güncellendi ---
+    try {
+      (L.control as any).compass({
+        position: 'bottomleft', // Sol alta yerleştirildi
+        autoActive: true,     // Cihaz yönelimini kullanmayı dene
+        showMarker: false     // Konum işaretçisini gösterme
+        // style: { /* Gerekirse ek stil ayarları eklenebilir */ } 
+      }).addTo(mapInstance);
+      console.log('[Map Init] Compass control updated (bottomleft, autoActive: true).');
+      // Not: Zoom kontrolü de sol altta, çakışma olabilir.
+    } catch (error) {
+      console.error('[Map Init] Error updating compass control:', error);
+    }
+    // -----------------------------
 
     // Set max bounds with some padding
     mapInstance.setMaxBounds(ANKARA_BOUNDS);
@@ -178,7 +199,8 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         mapRef.current = null;
       }
     };
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Bağımlılıkları kontrol et, boş dizi doğru
 
   const checkTodayData = useCallback(async () => {
     setDataCheckStatus('checking');
@@ -262,7 +284,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
     }
   };
 
-  // Yeni Handler Fonksiyonu
+  // Yeni Handler Fonksiyonu (POI popupları için)
   const handleSetPharmacyAsDestination = (lat: number, lng: number, address: string) => {
     console.log(`[handleSetPharmacyAsDestination] Setting destination to: ${address} (${lat}, ${lng})`);
     if (!mapRef.current) return;
@@ -277,18 +299,25 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
     }
 
     // Hedef işaretçisini haritaya ekle (veya güncelle)
-    // Önce eski hedef işaretçisini kaldır (ref üzerinden)
     if (destinationMarkerRef.current && mapRef.current.hasLayer(destinationMarkerRef.current)) {
         mapRef.current.removeLayer(destinationMarkerRef.current);
     }
-    // Yeni işaretçiyi ekle ve ref'i güncelle
     destinationMarkerRef.current = L.marker([lat, lng], { icon: destinationIcon }).addTo(mapRef.current);
 
-    // Eğer başlangıç noktası varsa rota çiz
-    if (source) {
+    // --- Mevcut rotayı temizle --- 
+    clearRoute(); // Önce temizle
+    // ---------------------------
+
+    // --- Eğer başlangıç noktası varsa ROTA ÇİZ --- 
+    if (source) { // source state'ini kontrol et
       console.log('[handleSetPharmacyAsDestination] Source exists, calling getRoute.');
-      getRoute(source, newDestination);
+      getRoute(source, newDestination); // Rota hesaplamayı tetikle
+    } else {
+      console.log('[handleSetPharmacyAsDestination] Source does not exist, cannot calculate route yet.');
+      // Opsiyonel: Kullanıcıya başlangıç noktası seçmesi gerektiğini belirten bir mesaj
+      // toast.info("Please set a starting point first.");
     }
+    // ---------------------------------------------
     
     // Açılır pencereyi kapat
     mapRef.current.closePopup();
@@ -474,13 +503,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
              destinationSearchRef.current.setQuery(closestPharmacy.address);
         }
 
-        if (source && closestPharmacy) {
-            console.log('[fetchPharmacies] Calling getRoute for the closest pharmacy.');
-            await getRoute(
-              { lat: source.lat, lng: source.lng },
-              { lat: closestPharmacy.lat, lng: closestPharmacy.lng }
-            );
-          }
+        clearRoute(); // Sadece mevcut rotayı temizle
 
     } catch (error: any) {
       // 404 hatası artık veri yok demek, kullanıcıya bunu söyleyebiliriz
@@ -606,6 +629,31 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       }
   };
 
+  // --- Rota ve Bilgilerini Temizleme Fonksiyonu --- 
+  const clearRoute = useCallback(() => {
+    console.log('[clearRoute] Attempting to clear route...'); 
+    if (mapRef.current && prevRouteLayerRef.current) {
+      console.log('[clearRoute] Map and previous route layer ref exist.'); 
+      if (mapRef.current.hasLayer(prevRouteLayerRef.current)) {
+        console.log('[clearRoute] Map has the layer, removing...'); 
+        try { 
+          mapRef.current.removeLayer(prevRouteLayerRef.current);
+          console.log('[clearRoute] Layer removed successfully from map.'); 
+        } catch (e) {
+           console.error('[clearRoute] Error removing layer:', e); 
+        }
+      } else {
+          console.log('[clearRoute] Map does NOT have the layer according to hasLayer().'); 
+      }
+      prevRouteLayerRef.current = null;
+      console.log('[clearRoute] Previous route layer ref set to null.'); 
+    }
+    // Rota bilgisini temizle
+    setRouteInfo(null); 
+    console.log('[clearRoute] Route info state cleared.'); 
+  }, [mapRef, prevRouteLayerRef]); // setRouteInfo bağımlılıklara eklendi mi? React kendi çözer
+  // -----------------------------------------------
+
   const addMarker = async (lat: number, lng: number, isSource: boolean, address?: string) => {
     console.log(`[addMarker ENTRY] Function called. isSource: ${isSource}`);
     console.log(`[addMarker] Called for ${isSource ? 'source' : 'destination'} at ${lat}, ${lng}. Provided address:`, address);
@@ -643,28 +691,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
     console.log(`[addMarker] Adding new ${isSource ? 'source' : 'destination'} marker.`);
     const newMarker = L.marker([lat, lng], { icon: icon, draggable: true })
       .addTo(mapInstance)
-      .on('dragend', (e) => {
-          const newLatLng = e.target.getLatLng();
-          console.log(`[addMarker dragend] ${isSource ? 'Source' : 'Destination'} dragged to:`, newLatLng);
-          stateSetter({ lat: newLatLng.lat, lng: newLatLng.lng });
-          findNearestAddress(newLatLng.lat, newLatLng.lng).then(newAddr => {
-              console.log(`[addMarker dragend] Found address after drag:`, newAddr);
-              if (searchRef.current) {
-                const queryToSetDrag = newAddr || `${newLatLng.lat.toFixed(5)}, ${newLatLng.lng.toFixed(5)}`;
-                console.log(`[addMarker dragend] Updating ${isSource ? 'source' : 'destination'} SearchBox query after drag to:`, queryToSetDrag);
-                searchRef.current.setQuery(queryToSetDrag);
-              }
-              // Rota çizimi için diğer noktayı kontrol et
-              const currentSource = sourceMarkerRef.current ? source : null;
-              const currentDestination = destinationMarkerRef.current ? destination : null;
-              const startPoint = isSource ? { lat: newLatLng.lat, lng: newLatLng.lng } : currentSource;
-              const endPoint = isSource ? currentDestination : { lat: newLatLng.lat, lng: newLatLng.lng };
-              if (startPoint && endPoint) {
-                  console.log("[addMarker dragend] Recalculating route...");
-                  getRoute(startPoint, endPoint);
-              }
-          });
-      });
+      .on('dragend', (e) => handleMarkerDragEnd(e, isSource)); // dragend handler bağlandı
 
     markerRef.current = newMarker;
     console.log(`[addMarker] Setting ${isSource ? 'source' : 'destination'} state.`);
@@ -696,17 +723,45 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
             button.addEventListener('click', listener);
         }
     });
-    console.log("[addMarker] Setting map view.");
     mapInstance.setView([lat, lng], 16); // Focus map
 
-    // Rota çizimini kontrol et
-    const currentSource = isSource ? { lat, lng } : source;
-    const currentDestination = !isSource ? { lat, lng } : destination;
-    if (currentSource && currentDestination) {
-      console.log("[addMarker] Both points exist, calling getRoute.");
-      getRoute(currentSource, currentDestination);
-    }
+    // --- Marker değiştiğinde mevcut rotayı temizle --- 
+    clearRoute();
+    // ---------------------------------------------------
+
     console.log("[addMarker] Finished.");
+  };
+
+  // Marker sürükleme olay yöneticisi
+  const handleMarkerDragEnd = (e: L.DragEndEvent, isSource: boolean) => {
+    const newLatLng = e.target.getLatLng();
+    const stateSetter = isSource ? setSource : setDestination;
+    const searchRef = isSource ? sourceSearchRef : destinationSearchRef;
+    
+    console.log(`[Marker dragend] ${isSource ? 'Source' : 'Destination'} dragged to:`, newLatLng);
+    stateSetter({ lat: newLatLng.lat, lng: newLatLng.lng });
+    
+    findNearestAddress(newLatLng.lat, newLatLng.lng).then(newAddr => {
+        console.log(`[Marker dragend] Found address after drag:`, newAddr);
+        if (searchRef.current) {
+          const queryToSetDrag = newAddr || `${newLatLng.lat.toFixed(5)}, ${newLatLng.lng.toFixed(5)}`;
+          searchRef.current.setQuery(queryToSetDrag);
+        }
+        // --- Rota çizimi için diğer noktayı kontrol et - KALDIRILDI --- 
+        /*
+        const currentSource = sourceMarkerRef.current ? source : null; // source state'ini kullan
+        const currentDestination = destinationMarkerRef.current ? destination : null; // destination state'ini kullan
+        const startPoint = isSource ? { lat: newLatLng.lat, lng: newLatLng.lng } : currentSource;
+        const endPoint = isSource ? currentDestination : { lat: newLatLng.lat, lng: newLatLng.lng };
+        if (startPoint && endPoint) {
+            console.log("[Marker dragend] Recalculating route...");
+            getRoute(startPoint, endPoint);
+        }
+        */
+        // --- Marker sürüklendiğinde mevcut rotayı temizle --- 
+        clearRoute();
+        // ---------------------------------------------------
+    });
   };
 
   const handleMapClick = async (e: L.LeafletMouseEvent) => {
@@ -728,49 +783,20 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
 
   useEffect(() => {
     if (!source || !destination || !mapRef.current) return;
-    // const mapInstance = mapRef.current; // Not used directly
-
-    // --- Bu kısım gereksiz, çünkü getRoute zaten önceki katmanı siliyor --- 
-    /*
-    if (prevRouteLayerRef.current && mapInstance.hasLayer(prevRouteLayerRef.current)) {
-      mapInstance.removeLayer(prevRouteLayerRef.current);
-    }
-    */
-    // ---------------------------------------------------------------------
-    
-    // Bu ref'ler bu effect içinde kullanılmıyor
-    // prevSourceRef.current = source;
-    // prevDestRef.current = destination;
-
-    console.log("[useEffect Source/Dest Change] Triggering getRoute"); // Log eklendi
+    console.log("[useEffect Source/Dest Change] Triggering getRoute");
     getRoute(source, destination);
-
-  }, [source, destination, mapRef, transportMode, departureTime]); // dependencies
+  }, [source, destination, mapRef, transportMode, departureTime]);
 
   const getRoute = async (start: Coordinate, end: Coordinate) => {
       console.log(`[getRoute] Fetching route from ${start.lat},${start.lng} to ${end.lat},${end.lng} via ${transportMode}`);
+      setLoadingRoute(true); 
+      clearRoute(); // Rota ve bilgileri temizle
       const token = localStorage.getItem('token');
-      // Add detailed logging
-      console.log(`[getRoute] Token from localStorage: ${token ? 'Found' : 'Not Found'}`);
-      console.log(`[getRoute] mapRef.current available: ${mapRef.current ? 'Yes' : 'No'}`);
-      // -------------      
-      if (!token || !mapRef.current) {
-          console.error("[getRoute] Token or Map not available.");
-          return;
-      }
-      const mapInstance = mapRef.current;
-      if (prevRouteLayerRef.current && mapInstance.hasLayer(prevRouteLayerRef.current)) {
-          mapInstance.removeLayer(prevRouteLayerRef.current);
-          prevRouteLayerRef.current = null;
-      }
+      // ... (token/map kontrolü)
+      
       try {
-          const requestData: any = { start, end, transport_mode: transportMode };
-          if (departureTime) {
-              requestData.departure_time = departureTime;
-          }
-          const endpoint = transportMode === 'transit'
-              ? `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/directions/transit/`
-              : `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/directions/route/`;
+          const requestData: any = { start, end, transport_mode: transportMode }; // Başlangıç modu gönderilir
+          const endpoint = `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/directions/route/`;
 
           const response = await axios.post<RouteResponse>(
               endpoint,
@@ -778,46 +804,63 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
               { headers: { 'Authorization': `Token ${token}` } }
           );
 
-          const route = response.data.routes?.[0]?.geometry;
-          if (route && mapInstance) {
-              const newRouteLayer = L.geoJSON(route, {
+          const routeData = response.data.routes?.[0]; 
+          if (routeData?.geometry && mapRef.current) { 
+              console.log('[getRoute] Route data received:', routeData);
+              // Yeni rota katmanını çiz
+              const newRouteLayer = L.geoJSON(routeData.geometry, {
                   style: { color: transportMode === 'transit' ? '#673AB7' : '#4285F4', weight: 5 }
-              }).addTo(mapInstance);
+              }).addTo(mapRef.current);
               prevRouteLayerRef.current = newRouteLayer;
+              console.log('[getRoute] Previous route layer ref updated.');
+              
+              // Rota bilgilerini state'e kaydet
+              setRouteInfo({
+                  distance: routeData.distance ?? null,
+                  durations: routeData.durations_by_mode || {} // Boş gelirse {} ata
+              });
+              console.log('[getRoute] Route info state updated.');
+
+              // Haritayı rotaya sığdır
               const bounds = newRouteLayer.getBounds();
-              // fitBounds Ankara kontrolü olmadan daha basit hale getirildi
-              mapInstance.fitBounds(bounds.pad(0.1), { maxZoom: 16 }); 
+              mapRef.current.fitBounds(bounds.pad(0.1), { maxZoom: 16 }); 
+
           } else {
               console.warn('[getRoute] No route geometry found in response.');
+              clearRoute(); // Rota yoksa temizle
           }
-          if (transportMode === 'transit' && response.data.transit_info) {
-              setTransitInfo(response.data.transit_info);
-              setShowTransitInfo(true);
+          // ... (Transit info - bu kısım A* ile uyumsuz olabilir, kontrol edilmeli)
+          if (transportMode === 'transit') { 
+              // Transit verisi backend'den geliyorsa gösterilebilir
+              // setTransitInfo(response.data.transit_info);
+              // setShowTransitInfo(true);
+              console.warn("Transit mode display not fully implemented with A* routing.")
           } else {
               setShowTransitInfo(false);
               setTransitInfo(null);
           }
       } catch (error: any) {
-          console.error('Error getting route:', error.response?.data || error.message);
-          toast.error('Failed to get directions');
+          console.error('Error getting route:', error.response?.data || error.message); 
+          clearRoute(); // Hata durumunda temizle
+          toast.error(error.response?.data?.error || 'Failed to get directions');
           setShowTransitInfo(false);
           setTransitInfo(null);
+      } finally {
+         setLoadingRoute(false); 
       }
   };
 
   // Handle transport mode change
   const handleTransportModeChange = (mode: string) => {
+    console.log(`[Mode Change] Mode changed to: ${mode}`);
     setTransportMode(mode);
-    
-    // Reset transit info when changing modes
+    // Rota bilgisini temizlemeye gerek yok, sadece gösterilen süre değişecek
+    // clearRoute(); // KALDIRILDI
+
+    // Reset transit info if not transit mode
     if (mode !== 'transit') {
       setShowTransitInfo(false);
       setTransitInfo(null);
-    }
-    
-    // If we already have source and destination, update the route
-    if (source && destination) {
-      getRoute(source, destination);
     }
   };
 
@@ -1030,6 +1073,37 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
     }
   };
 
+  // --- Rota Süresini Formatlama Fonksiyonu --- 
+  const formatRouteDuration = (seconds: number | null): string => {
+    if (seconds === null || seconds <= 0) return ''; // 0 saniye veya null ise boş dön
+    const minutes = Math.round(seconds / 60);
+    if (minutes === 0) return '< 1 min'; // Çok kısa süreler için
+    if (minutes < 60) {
+      return `${minutes} min`;
+    } else {
+      const hours = Math.floor(minutes / 60);
+      const remainingMinutes = minutes % 60;
+      if (remainingMinutes === 0) {
+        return `${hours}h`;
+      } else {
+         return `${hours}h ${remainingMinutes}min`;
+      }
+    }
+  };
+  // -----------------------------------------
+
+   // --- Rota Mesafesini Formatlama Fonksiyonu --- 
+   const formatRouteDistance = (meters: number | null): string => {
+    if (meters === null || meters < 0) return '';
+    if (meters < 1000) {
+      return `${Math.round(meters)} m`;
+    } else {
+      const kilometers = meters / 1000;
+      return `${kilometers.toFixed(1)} km`; // Virgülden sonra 1 basamak
+    }
+  };
+  // -----------------------------------------
+
   return (
     <div className="map-container">
       <div className="search-container">
@@ -1099,11 +1173,47 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         <div className="point-of-interest-buttons">
           <button 
             onClick={() => source && destination && getRoute(source, destination)} 
-            className="route-button"
+            className="route-button" 
+            disabled={loadingRoute || !source || !destination} // Yüklenirken veya nokta yokken disable
           >
-            Get Directions
+            {loadingRoute ? 'Calculating...' : 'Get Directions'}
           </button>
         </div>
+        {/* Rota Bilgisi Gösterimi (Güncellendi) */} 
+        {routeInfo && (
+          <div className="route-info">
+            {/* Seçili modun süresini göster */} 
+            {routeInfo.durations[transportMode] !== null && (
+                 <span title={`~${Math.round(routeInfo.durations[transportMode]!)} seconds`}> 
+                     🕒 {formatRouteDuration(routeInfo.durations[transportMode])} 
+                 </span>
+            )}
+            {/* Mesafeyi göster */} 
+            {routeInfo.distance !== null && (
+                 <span style={{ marginLeft: '10px' }}> 
+                     📏 {formatRouteDistance(routeInfo.distance)}
+                 </span>
+            )}
+            {/* Varış Zamanını Hesapla ve Göster */} 
+            {routeInfo.durations[transportMode] !== null && departureTime && (
+              (() => {
+                try {
+                  const departureDate = new Date(departureTime); // datetime-local değerini Date'e çevir
+                  departureDate.setSeconds(departureDate.getSeconds() + routeInfo.durations[transportMode]!); // Süreyi ekle (saniye)
+                  const arrivalTime = departureDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }); // Sa:Dk formatında göster
+                  return (
+                    <span style={{ marginLeft: '10px' }}> 
+                        🏁 Arr: {arrivalTime}
+                    </span>
+                  );
+                } catch (e) {
+                  console.error("Error calculating arrival time:", e);
+                  return null; // Hata olursa gösterme
+                }
+              })()
+            )}
+          </div>
+        )} 
         <div className="point-of-interest-buttons">
           <button onClick={fetchPharmacies} className="poi-button">
             <img src={pharmacyIconUrl} alt="Pharmacy" width="20" height="20"/> Duty Pharmacies

@@ -5,11 +5,15 @@ psycopg2-binary
 django-cors-headers
 dotenv
 requests
-polyline
 geojson
 geopy
 python-dateutil
 Pillow
+
+# Graf ve Rota Hesaplama (Yeni Eklendi)
+networkx>=2.6 # Graf işlemleri ve A*
+osmnx>=1.1 # OSM verisi indirme, graf oluşturma
+scikit-learn>=0.24 # osmnx'in nearest_nodes için ihtiyacı var
 
 # Veritabanı
 dj-database-url==2.3.0

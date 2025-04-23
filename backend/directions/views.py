@@ -1,5 +1,5 @@
 import requests
-import polyline
+# import polyline # Kaldırıldı (HERE polyline için)
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -12,318 +12,257 @@ from routing.models import UserRoadPreference, RoutePreferenceProfile
 from django.utils import timezone
 import json
 import logging
+import os # Dosya yolu için eklendi
+import time # Zaman ölçümü için eklendi
+
+# Gerekli olabilecek yeni importlar (Placeholder)
+import networkx as nx # networkx import edildi
+import osmnx as ox # osmnx import edildi
+from geopy.distance import great_circle # Heuristic için eklendi
 
 logger = logging.getLogger(__name__)
 
-class HereRoutingService:
-    """Service for interacting with HERE Routing API with traffic data."""
+# --- Graf Yükleme (Global Değişkenle) --- 
+GRAPH_FILE_PATH = os.path.join(settings.BASE_DIR, 'data', 'ankara_drive.graphml')
+GRAPH = None # Global değişken
+GRAPH_LOAD_TIME = None
+
+def load_graph_once():
+    """Graf dosyasını diskten sadece bir kez yükler ve global değişkende saklar."""
+    global GRAPH, GRAPH_LOAD_TIME
+    if GRAPH is None:
+        start_time = time.time()
+        if os.path.exists(GRAPH_FILE_PATH):
+            logger.info(f"Loading graph from {GRAPH_FILE_PATH} (this happens only once)...")
+            GRAPH = ox.load_graphml(GRAPH_FILE_PATH)
+            GRAPH_LOAD_TIME = time.time() - start_time
+            logger.info(f"Graph loaded successfully in {GRAPH_LOAD_TIME:.2f} seconds.")
+        else:
+            logger.error(f"Graph file not found at {GRAPH_FILE_PATH}! Run 'python manage.py create_graph' first.")
+            # Sunucu başlangıcında hata vermek veya boş bir graf ile devam etmek yerine None bırakabiliriz.
+            # İstek sırasında kontrol edilecek.
+    return GRAPH
+
+# Sunucu başladığında grafı yüklemeyi dene
+load_graph_once()
+# ---------------------------------------
+
+# --- A* Heuristic Fonksiyonu --- 
+def distance_heuristic(u, v, graph, mode='driving'):
+    """A* için Haversine mesafesi heuristic fonksiyonu."""
+    # Hedef düğümün koordinatlarını al
+    # Not: graph değişkeni burada global veya parametre olarak alınabilir.
+    # load_graph_once() çağrısı sonrası GRAPH global değişkeni dolu olmalı.
+    target_node_data = graph.nodes[v]
+    current_node_data = graph.nodes[u]
     
-    BASE_URL = "https://router.hereapi.com/v8/routes"
+    # Koordinatlar (latitude, longitude) sırasıyla olmalı
+    target_coords = (target_node_data['y'], target_node_data['x'])
+    current_coords = (current_node_data['y'], current_node_data['x'])
     
-    @staticmethod
-    def get_route(start, end, user=None, departure_time=None, transport_mode='car'):
-        """
-        Get route between two points using HERE API with traffic data.
-        
-        Args:
-            start (dict): Start coordinates with lat and lng
-            end (dict): End coordinates with lat and lng
-            user (User, optional): User for preferences. Defaults to None.
-            departure_time (datetime, optional): Departure time. Defaults to current time.
-            transport_mode (str, optional): Mode of transport. Defaults to 'car'.
-        
-        Returns:
-            dict: Route response from HERE API
-        """
-        api_key = settings.HERE_API_KEY
-        
-        if not api_key:
-            logger.error("HERE API key not configured")
-            raise ValueError("HERE API key not configured")
-        
-        # Format coordinates for HERE API
-        origin = f"{start['lat']},{start['lng']}"
-        destination = f"{end['lat']},{end['lng']}"
-        
-        # Set departure time (default to now if not provided)
-        if departure_time is None:
-            departure_time = datetime.now()
-        
-        departure_time_str = departure_time.strftime("%Y-%m-%dT%H:%M:%S")
-        
-        # Map frontend transport modes to HERE API transport modes
-        transport_mode_mapping = {
-            'driving': 'car',
-            'walking': 'pedestrian',
-            'cycling': 'bicycle',
-            'transit': 'publicTransport'
-        }
-        
-        here_transport_mode = transport_mode_mapping.get(transport_mode, 'car')
-        
-        # Base parameters
-        params = {
-            'apiKey': api_key,
-            'transportMode': here_transport_mode,
-            'origin': origin,
-            'destination': destination,
-            'departureTime': departure_time_str,
-            'return': 'polyline,summary,actions,instructions',
-            'routingMode': 'fast',  # Use fastest route by default
-            'spans': 'names,length,duration,baseDuration',  # Get base duration without traffic
-        }
-        
-        # Add traffic consideration for car mode
-        if here_transport_mode == 'car':
-            params['traffic'] = 'enabled'
-        
-        # Add user preferences if user is authenticated
-        if user and user.is_authenticated:
-            try:
-                user_profile = UserProfile.objects.get(user=user)
-                
-                # Get user's default preference profile
-                profile = RoutePreferenceProfile.objects.filter(
-                    user=user_profile, is_default=True
-                ).first()
-                
-                # Get user's road preferences
-                preferred_roads = UserRoadPreference.objects.filter(
-                    user=user_profile, preference_type='prefer'
-                )
-                
-                avoided_roads = UserRoadPreference.objects.filter(
-                    user=user_profile, preference_type='avoid'
-                )
-                
-                # Add avoid areas for avoided roads
-                if avoided_roads.exists() and profile:
-                    avoid_areas = []
-                    for pref in avoided_roads:
-                        # Get road geometry and create avoid area
-                        road = pref.road_segment
-                        if road.geometry:
-                            # Extract coordinates from geometry
-                            coords = [(point[1], point[0]) for point in road.geometry.coords]
-                            
-                            # Create avoid area with buffer
-                            avoid_areas.append({
-                                'type': 'polygon',
-                                'vertices': coords
-                            })
-                    
-                    if avoid_areas:
-                        params['avoid[areas]'] = json.dumps(avoid_areas)
-                
-                # Add prefer roads as waypoints
-                if preferred_roads.exists() and profile:
-                    waypoints = []
-                    for pref in preferred_roads:
-                        road = pref.road_segment
-                        if road.geometry and len(road.geometry.coords) > 0:
-                            # Use midpoint of the road as waypoint
-                            mid_idx = len(road.geometry.coords) // 2
-                            mid_point = road.geometry.coords[mid_idx]
-                            waypoints.append(f"{mid_point[1]},{mid_point[0]}")
-                    
-                    if waypoints:
-                        params['via'] = ','.join(waypoints)
-                        params['passThrough'] = 'true'  # Make sure waypoints are passed through
-            
-            except Exception as e:
-                logger.error(f"Error applying user preferences: {str(e)}")
-        
-        try:
-            logger.info(f"Calling HERE API with params: {params}")
-            response = requests.get(HereRoutingService.BASE_URL, params=params)
-            
-            if response.status_code != 200:
-                logger.error(f"HERE API error: {response.status_code} - {response.text}")
-                return None
-            
-            logger.info("HERE API call successful")
-            return response.json()
-        
-        except Exception as e:
-            logger.error(f"Error calling HERE API: {str(e)}")
-            return None
+    # Mesafeyi kilometre olarak hesapla
+    distance_km = great_circle(current_coords, target_coords).km
+    
+    # Modlara göre ortalama hızlar (km/h) - Ayarlanabilir
+    avg_speeds = {
+        'driving': 50,
+        'walking': 5,
+        'cycling': 15,
+    }
+    avg_speed = avg_speeds.get(mode, 50) # Bilinmeyen mod için sürüş hızı
+    # saniye/km = 3600 / km/h
+    seconds_per_km = 3600 / avg_speed 
+    estimated_time_seconds = distance_km * seconds_per_km
+    return estimated_time_seconds
+# -----------------------------
+
+# --- A* Ağırlık Fonksiyonu (Yeni) --- 
+WALKING_SPEED_MPS = 1.39 # Yaklaşık 5 km/h (metre/saniye)
+CYCLING_SPEED_MPS = 4.17 # Yaklaşık 15 km/h (metre/saniye)
+
+def calculate_travel_time(u, v, edge_data, mode='driving'):
+    """Kenar için seyahat süresini moda göre hesaplar."""
+    length_meters = edge_data.get('length')
+    if length_meters is None:
+        return float('inf') # Uzunluk yoksa bu yolu kullanma
+    
+    if mode == 'walking':
+        # Uzunluk / yürüme hızı (m/s)
+        return length_meters / WALKING_SPEED_MPS
+    elif mode == 'cycling':
+        # Uzunluk / bisiklet hızı (m/s)
+        # İleride OSM'den bisiklet hızları veya yol tipleri eklenebilir
+        return length_meters / CYCLING_SPEED_MPS
+    else: # driving (varsayılan)
+        # osmnx tarafından eklenen travel_time kullan
+        # Eğer travel_time yoksa, hızdan hesapla (fallback)
+        travel_time = edge_data.get('travel_time')
+        if travel_time is not None:
+            return travel_time
+        else:
+            # Fallback: Hız varsa kullan, yoksa varsayılan sürüş hızı (örn: 50km/h)
+            speed_kmh = edge_data.get('speed_kph', 50) 
+            speed_mps = speed_kmh * 1000 / 3600
+            if speed_mps > 0:
+                return length_meters / speed_mps
+            else:
+                return float('inf') # Hız sıfırsa veya negatifse yolu kullanma
+# -----------------------------------
+
+# --- HereRoutingService Sınıfı Kaldırıldı --- 
+# class HereRoutingService:
+#    ...
+# -------------------------------------------
 
 class DirectionsView(APIView):
     permission_classes = [IsAuthenticatedOrReadOnly]
     
     def post(self, request):
+        # try bloğunun başına taşıyalım ki except içinde erişebilelim
+        start_node = None
+        end_node = None
+        graph = None
+        
         try:
             # Extract coordinates from request
-            start = request.data.get('start')
-            end = request.data.get('end')
+            start_coords = request.data.get('start')
+            end_coords = request.data.get('end')
             
             # Get optional parameters
-            departure_time_str = request.data.get('departure_time')
-            transport_mode = request.data.get('transport_mode', 'driving')
+            departure_time_str = request.data.get('departure_time') # İleride kullanılabilir
+            # Başlangıçta seçilen mod önemli
+            initial_transport_mode = request.data.get('transport_mode', 'driving') 
             
-            departure_time = None
-            
-            if departure_time_str:
-                try:
-                    departure_time = datetime.fromisoformat(departure_time_str)
-                except ValueError:
-                    return Response(
-                        {"error": "Invalid departure time format. Use ISO format (YYYY-MM-DDTHH:MM:SS)"},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-            
-            if not start or not end:
+            # --- Parametre Kontrolleri --- 
+            if not start_coords or not end_coords:
                 return Response(
                     {"error": "Start and end coordinates are required"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+            if not isinstance(start_coords, dict) or 'lat' not in start_coords or 'lng' not in start_coords:
+                return Response({"error": "Invalid start coordinate format"}, status=status.HTTP_400_BAD_REQUEST)
+            if not isinstance(end_coords, dict) or 'lat' not in end_coords or 'lng' not in end_coords:
+                 return Response({"error": "Invalid end coordinate format"}, status=status.HTTP_400_BAD_REQUEST)
+
+            logger.info(f"Route requested from {start_coords} to {end_coords} via {initial_transport_mode}")
+
+            # --- A* Rota Hesaplama Mantığı --- 
+            # 1. Yol ağını yükle
+            graph = load_graph_once() 
+            if graph is None: return Response({"error": "Road network graph is not loaded. Please check server logs."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            # 2. Başlangıç/Bitiş noktalarına en yakın graf düğümlerini bul
+            start_node = ox.nearest_nodes(graph, start_coords['lng'], start_coords['lat'])
+            end_node = ox.nearest_nodes(graph, end_coords['lng'], end_coords['lat'])
+            logger.info(f"Nearest nodes found: Start={start_node}, End={end_node}")
             
-            # Get route using HERE API with traffic data
-            route_data = HereRoutingService.get_route(
-                start, 
-                end, 
-                user=request.user,
-                departure_time=departure_time,
-                transport_mode=transport_mode
-            )
+            # ---- Tüm Modlar İçin Süre Hesaplama ----
+            all_durations = {}
+            route_nodes = None # Geometri için kullanılacak rota düğümleri
+            relevant_modes = ['driving', 'walking', 'cycling'] # Hesaplanacak modlar
             
-            if not route_data:
-                return Response(
-                    {"error": "Failed to get directions"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+            for mode in relevant_modes:
+                logger.info(f"Calculating duration for mode: {mode}")
+                # 3. Ağırlık fonksiyonu (moda göre)
+                def weight_wrapper(u, v, edge_attr):
+                    return calculate_travel_time(u, v, edge_attr[0], mode=mode)
+                
+                # 4. Heuristic fonksiyonu (moda göre)
+                def heuristic_wrapper(u, v):
+                    return distance_heuristic(u, v, graph, mode=mode)
+                
+                try:
+                    # 5. A* algoritmasını çalıştır
+                    path_nodes = nx.astar_path(graph, start_node, end_node, heuristic=heuristic_wrapper, weight=weight_wrapper)
+                    
+                    # Başlangıç modu için rota düğümlerini sakla (geometri için)
+                    if mode == initial_transport_mode:
+                        route_nodes = path_nodes
+                        logger.info(f"Path nodes for geometry (mode: {mode}) stored: {len(route_nodes)} nodes.")
+                    
+                    # Toplam süreyi hesapla
+                    duration = 0
+                    for u, v in zip(path_nodes[:-1], path_nodes[1:]):
+                        edge_data = graph.get_edge_data(u, v, key=0)
+                        if edge_data:
+                            duration += calculate_travel_time(u, v, edge_data, mode=mode) 
+                        else:
+                            logger.warning(f"Edge data not found between nodes {u} and {v} for mode {mode}")
+                            duration = float('inf') # Hata durumunda süreyi sonsuz yap
+                            break
+                            
+                    if duration == float('inf'):
+                         logger.warning(f"Could not calculate valid duration for mode: {mode}")
+                         all_durations[mode] = None # Süre hesaplanamadıysa null ata
+                    else: 
+                        all_durations[mode] = duration
+                        logger.info(f"Calculated duration for {mode}: {duration:.2f}s")
+
+                except nx.NetworkXNoPath:
+                    logger.warning(f"No path found between nodes for mode: {mode}")
+                    all_durations[mode] = None # Rota yoksa null ata
+                except Exception as mode_e:
+                    logger.exception(f"Error calculating route for mode {mode}: {mode_e}")
+                    all_durations[mode] = None # Hata durumunda null ata
+            # ----------------------------------------
+
+            # Geometri için kullanılacak rota düğümleri bulundu mu kontrol et
+            if route_nodes is None:
+                # Başlangıç modu için rota bulunamadıysa veya hata oluştuysa
+                logger.error(f"Could not determine path nodes for the initial mode: {initial_transport_mode}")
+                # Belki ilk başarılı olan modun geometrisini kullanabilir veya hata dönebiliriz
+                # Şimdilik hata dönelim
+                return Response({"error": f"Could not calculate route for the selected mode ({initial_transport_mode})"}, status=status.HTTP_404_NOT_FOUND)
             
-            # Transform HERE API response to match expected format
-            transformed_response = self._transform_here_response(route_data)
-            return Response(transformed_response, status=status.HTTP_200_OK)
+            # 6. Sonucu (geometri, süreler, mesafe) formatla
+            route_geometry = {
+                "type": "LineString",
+                "coordinates": [ [graph.nodes[node]['x'], graph.nodes[node]['y']] for node in route_nodes ]
+            }
             
+            # Toplam mesafeyi hesapla (geometriyi oluşturan rotaya göre)
+            total_distance = 0
+            for u, v in zip(route_nodes[:-1], route_nodes[1:]):
+                edge_data = graph.get_edge_data(u, v, key=0)
+                if edge_data:
+                    total_distance += edge_data.get('length', 0)
+                else:
+                    logger.warning(f"Edge data not found between nodes {u} and {v} for distance calculation!")
+            
+            logger.info(f"Calculated distance for initial mode ({initial_transport_mode}): {total_distance:.2f}m")
+
+            # Yanıtı oluştur (tüm süreleri içeren)
+            route_response = {
+                "routes": [{
+                    "geometry": route_geometry,
+                    "legs": [], # Legs şimdilik boş
+                    # Ana süre/mesafe başlangıç moduna ait olsun
+                    "duration": all_durations.get(initial_transport_mode), 
+                    "distance": total_distance, 
+                    # Tüm modların sürelerini içeren yeni bir alan ekle
+                    "durations_by_mode": all_durations 
+                }]
+            }
+            # ---------------------------------------------------
+
+            return Response(route_response, status=status.HTTP_200_OK)
+            
+        except nx.NetworkXNoPath:
+             logger.warning(f"No path found between requested points") # Düğüm ID'leri artık burada yok
+             return Response({"error": "No path found between the selected points"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            logger.error(f"Error in DirectionsView: {str(e)}")
+            logger.exception(f"Error in DirectionsView during A* calculation: {str(e)}") 
             return Response(
-                {"error": str(e)},
+                {"error": "Internal server error during route calculation.", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
-    def _transform_here_response(self, here_response):
-        """Transform HERE API response to match expected format by frontend."""
-        try:
-            # Extract the first route
-            route = here_response.get('routes', [{}])[0]
-            sections = route.get('sections', [{}])[0]
-            
-            # Extract polyline
-            polyline_str = sections.get('polyline', '')
-            
-            # Decode polyline to get coordinates
-            coordinates = self._decode_flexible_polyline(polyline_str)
-            
-            # Create GeoJSON geometry
-            geometry = {
-                "type": "LineString",
-                "coordinates": [[coord[1], coord[0]] for coord in coordinates]  # [lng, lat] format
-            }
-            
-            # Extract summary
-            summary = sections.get('summary', {})
-            
-            # Extract base duration and traffic duration
-            base_duration = summary.get('baseDuration', 0)
-            traffic_duration = summary.get('duration', 0)
-            
-            # Calculate traffic delay
-            traffic_delay = max(0, traffic_duration - base_duration)
-            
-            # Create transformed response
-            transformed = {
-                "routes": [{
-                    "geometry": geometry,
-                    "legs": [{
-                        "steps": [],
-                        "summary": "",
-                        "weight": traffic_duration,
-                        "duration": traffic_duration,
-                        "distance": summary.get('length', 0)
-                    }],
-                    "weight_name": "duration",
-                    "weight": traffic_duration,
-                    "duration": traffic_duration,
-                    "distance": summary.get('length', 0)
-                }],
-                "waypoints": [],
-                "code": "Ok",
-                "traffic_info": {
-                    "has_traffic": True,
-                    "base_duration": base_duration,  # Duration without traffic
-                    "traffic_duration": traffic_duration,   # Duration with traffic
-                    "traffic_delay": traffic_delay  # Delay due to traffic
-                }
-            }
-            
-            return transformed
-            
-        except Exception as e:
-            logger.error(f"Error transforming HERE response: {str(e)}")
-            # Return a simplified response if transformation fails
-            return {
-                "routes": [{
-                    "geometry": {
-                        "type": "LineString",
-                        "coordinates": [[32.8, 39.9], [32.81, 39.91], [32.82, 39.92]]
-                    },
-                    "legs": [{
-                        "steps": [],
-                        "summary": "",
-                        "weight": 1000,
-                        "duration": 1000,
-                        "distance": 5000
-                    }],
-                    "weight_name": "duration",
-                    "weight": 1000,
-                    "duration": 1000,
-                    "distance": 5000
-                }],
-                "waypoints": [],
-                "code": "Ok",
-                "traffic_info": {
-                    "has_traffic": False,
-                    "base_duration": 1000,
-                    "traffic_duration": 1000,
-                    "traffic_delay": 0
-                }
-            }
-    
-    def _decode_flexible_polyline(self, encoded):
-        """
-        Decode HERE's flexible polyline format.
-        Returns list of [lat, lng] coordinates.
-        """
-        try:
-            # Use the polyline library to decode the polyline
-            # Note: This is a simplified approach that works for most cases
-            # For production, consider using HERE's official flexible polyline library
-            
-            if not encoded:
-                logger.warning("Empty polyline received")
-                return [[39.9, 32.8], [39.91, 32.81], [39.92, 32.82]]
-            
-            # Try to decode using standard polyline format
-            try:
-                # Standard Google polyline format
-                decoded = polyline.decode(encoded)
-                if decoded:
-                    return decoded
-            except Exception as e:
-                logger.warning(f"Standard polyline decoding failed: {str(e)}")
-            
-            # If standard decoding fails, try a different approach
-            # For HERE's flexible polyline, we would normally use their library
-            # As a fallback, we'll extract coordinates from the sections data
-            
-            # Log the issue and return a fallback path
-            logger.warning("Using fallback path for polyline decoding")
-            return [[39.9, 32.8], [39.91, 32.81], [39.92, 32.82]]
-            
-        except Exception as e:
-            logger.error(f"Error decoding polyline: {str(e)}")
-            # Return a simple path if decoding fails
-            return [[39.9, 32.8], [39.91, 32.81], [39.92, 32.82]]
+    # --- _transform_here_response Metodu Kaldırıldı --- 
+    # def _transform_here_response(self, here_response):
+    #    ...
+    # ---------------------------------------------------
+
+    # --- _decode_flexible_polyline Metodu Kaldırıldı --- 
+    # def _decode_flexible_polyline(self, encoded):
+    #    ...
+    # ---------------------------------------------------
