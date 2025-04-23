@@ -22,6 +22,9 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# logs dizinini BASE_DIR içinde oluştur (varsa dokunmaz)
+LOGS_DIR = BASE_DIR / 'logs'
+LOGS_DIR.mkdir(exist_ok=True)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -187,7 +190,8 @@ REST_FRAMEWORK = {
 CRONJOBS = [
     ('*/15 * * * *', # Her 15 dakikada bir
      'traffic_data.management.commands.collect_traffic.Command', # Çalıştırılacak komutun Python yolu
-     '>> /Users/actk/Logs/traffic_cron.log' # Log dosyası (yolu kendine göre ayarla)
+     # Log yolu dinamik hale getirildi ve stderr de yönlendirildi
+     f'>> {LOGS_DIR / "traffic_cron.log"} 2>&1' 
     )
 ]
 
@@ -213,35 +217,47 @@ DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@bithubmaps.co
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+        'traffic_formatter': {
+            'format': '%(asctime)s [%(levelname)s] (%(name)s): %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+    },
     'handlers': {
-        'cron_log_file': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+        },
+        'traffic_file': {
             'level': 'INFO',
             'class': 'logging.FileHandler',
-            'filename': '/Users/actk/Logs/traffic_cron.log', # Yukarıdaki yolla aynı olmalı
-            'formatter': 'verbose',
+            'filename': LOGS_DIR / 'traffic_cron.log', 
+            'formatter': 'traffic_formatter',
         },
     },
     'loggers': {
-        'django_crontab.crontab': {
-            'handlers': ['cron_log_file'],
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'WARNING', # Hata ayıklama için DEBUG yapabilirsiniz
+            'propagate': False,
+        },
+        'traffic_data': {
+            'handlers': ['console', 'traffic_file'],
             'level': 'INFO',
             'propagate': False,
         },
-        # Kendi komutunuzun loglarını da buraya yönlendirebilirsiniz
-        'traffic_data.management.commands.collect_traffic': {
-            'handlers': ['cron_log_file'],
+        'background_task': {
+            'handlers': ['console', 'traffic_file'],
             'level': 'INFO',
             'propagate': True,
-        },
-         'traffic_data.collector': { # Collector logları için
-            'handlers': ['cron_log_file'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-    },
-    'formatters': {
-        'verbose': {
-            'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
         },
     },
 }
