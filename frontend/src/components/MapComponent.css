@@ -8,14 +8,18 @@
 
 .search-container {
   position: absolute;
-  top: 60px;
+  top: 10px;
   left: 10px;
+  right: 10px;
   z-index: 1000;
-  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 400px;
+  padding: 10px;
   background-color: white;
   border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  padding: 15px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
 /* Sağ Alt Kontroller Konteyneri (Güncellendi) */
@@ -51,10 +55,11 @@
   margin-bottom: 15px;
 } */
 
-.search-box-with-button {
-  display: flex;
-  align-items: center;
-  margin-bottom: 10px;
+.search-box-wrapper {
+  background-color: white;
+  border-radius: 4px;
+  padding: 5px;
+  margin-bottom: 5px;
 }
 
 .location-button {
@@ -76,13 +81,13 @@
 
 .point-of-interest-buttons {
   display: flex;
-  margin-top: 10px;
-  gap: 10px;
+  margin-top: 5px;
+  gap: 5px;
 }
 
 .poi-button, .route-button {
   flex: 1;
-  padding: 8px 12px;
+  padding: 6px 10px;
   background-color: #4285F4;
   color: white;
   border: none;
@@ -153,10 +158,8 @@
 
 /* Yeni Ortalayıcı Wrapper */
 .mode-menu-toggle-wrapper {
-  display: flex; /* İçeriği (butonu) ortalamak için */
-  justify-content: center; /* Butonu yatayda ortala */
-  margin-top: 10px; /* Üstteki elemanla boşluk */
-  margin-bottom: 5px; /* Açılır menüyle arasındaki boşluk */
+  margin-top: 5px;
+  margin-bottom: 5px;
 }
 
 /* Buton içindeki ikon ve isim hizalaması */
@@ -332,4 +335,297 @@
 .poi-menu-toggle-button {
   width: auto !important;
   padding: 0 12px !important;
+}
+
+/* Navigasyon UI Stilleri */
+.navigation-ui {
+  position: absolute;
+  width: 100%;
+  pointer-events: none;
+}
+
+.navigation-top-panel {
+  background: rgba(255, 255, 255, 0.95);
+  margin: 10px;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  pointer-events: auto;
+}
+
+.next-step {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.maneuver-icon {
+  font-size: 24px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f0f0;
+  border-radius: 50%;
+}
+
+.step-info {
+  flex: 1;
+}
+
+.instruction {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.distance {
+  font-size: 14px;
+  color: #666;
+}
+
+.navigation-bottom-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
+  pointer-events: auto;
+}
+
+.navigation-info {
+  display: flex;
+  gap: 20px;
+}
+
+.remaining-distance,
+.remaining-time {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.stop-navigation-btn {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+/* Navigasyon butonu stilleri */
+.navigation-button {
+  width: 100%;
+  padding: 10px;
+  background-color: #4285F4;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  margin-top: 5px;
+}
+
+.navigation-button:hover {
+  background-color: #3367d6;
+}
+
+/* Rota bilgisi stilleri */
+.route-info {
+  background-color: #f8f9fa;
+  padding: 10px;
+  border-radius: 4px;
+  margin-top: 5px;
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+
+/* Eski start-navigation-btn stilini kaldır */
+.start-navigation-btn {
+  display: none;
+}
+
+/* Kullanıcı konumu marker'ı */
+.user-location-dot {
+  width: 20px;
+  height: 20px;
+  position: relative;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  background: #4285f4;
+  border: 2px solid white;
+  border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+}
+
+.arrow {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 12px solid #4285f4;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -100%);
+}
+
+/* Yeni Navigasyon Panel Stilleri */
+.navigation-panel {
+  position: absolute;
+  top: 360px !important;
+  left: 10px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  padding: 15px;
+  max-width: 400px;
+  width: 90%;
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.navigation-header {
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.current-step {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 10px;
+}
+
+.maneuver-icon {
+  width: 40px;
+  height: 40px;
+  background: #f5f5f5;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.step-info {
+  flex: 1;
+}
+
+.instruction {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.step-distance {
+  font-size: 14px;
+  color: #666;
+}
+
+.navigation-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+}
+
+.remaining-info {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.stop-navigation-btn {
+  padding: 6px 12px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.navigation-steps {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 15px;
+  border-left: 3px solid transparent;
+  transition: background-color 0.2s;
+}
+
+.step-item:hover {
+  background-color: #f8f9fa;
+}
+
+.step-item.active {
+  background-color: #e3f2fd;
+  border-left-color: #4285f4;
+}
+
+.step-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.step-details {
+  flex: 1;
+}
+
+.step-instruction {
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 2px;
+}
+
+.step-distance {
+  font-size: 12px;
+  color: #666;
+}
+
+/* Scrollbar stilleri */
+.navigation-steps::-webkit-scrollbar {
+  width: 6px;
+}
+
+.navigation-steps::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.navigation-steps::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+.navigation-steps::-webkit-scrollbar-thumb:hover {
+  background: #666;
 }

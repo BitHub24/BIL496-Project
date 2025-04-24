@@ -1,6 +1,6 @@
 /// <reference types="react" />
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import './MapComponent.css';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -99,6 +99,24 @@ const ANKARA_BOUNDS: L.LatLngBoundsLiteral = [
   [40.1, 33.2]  // Northeast coordinates
 ];
 
+// Navigasyon için yeni tipler
+interface NavigationStep {
+  instruction: string;
+  distance: number;
+  duration: number;
+  maneuver: string;
+  bearing: number;
+}
+
+interface NavigationState {
+  isActive: boolean;
+  currentStep: number;
+  steps: NavigationStep[];
+  remainingDistance: number;
+  remainingDuration: number;
+  isRerouting: boolean;
+}
+
 // Yeni Prop Arayüzü
 interface MapComponentProps {
   isLoggedIn: boolean;
@@ -160,6 +178,21 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   const prevDestRef = useRef<Coordinate | null>(null);
   const wifiMarkersRef = useRef<L.LayerGroup | null>(null);
   const bicycleMarkersRef = useRef<L.LayerGroup | null>(null);
+
+  // Navigasyon için yeni state'ler
+  const [navigation, setNavigation] = useState<NavigationState>({
+    isActive: false,
+    currentStep: 0,
+    steps: [],
+    remainingDistance: 0,
+    remainingDuration: 0,
+    isRerouting: false
+  });
+  const [userLocation, setUserLocation] = useState<Coordinate | null>(null);
+  const [userHeading, setUserHeading] = useState<number | null>(null);
+  const [watchId, setWatchId] = useState<number | null>(null);
+  const [isNavigationMode, setIsNavigationMode] = useState(false);
+  const [showNavigationUI, setShowNavigationUI] = useState(false);
 
   useEffect(() => {
     const mapInstance = L.map('map', {
@@ -806,66 +839,120 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   }, [source, destination, mapRef, transportMode, departureTime]);
 
   const getRoute = async (start: Coordinate, end: Coordinate) => {
-      console.log(`[getRoute] Fetching route from ${start.lat},${start.lng} to ${end.lat},${end.lng} via ${transportMode}`);
-      setLoadingRoute(true); 
-      clearRoute(); // Rota ve bilgileri temizle
+    console.log(`[getRoute] Fetching route from ${start.lat},${start.lng} to ${end.lat},${end.lng} via ${transportMode}`);
+    setLoadingRoute(true); 
+    clearRoute();
+    
+    try {
       const token = localStorage.getItem('token');
-      // ... (token/map kontrolü)
-      
-      try {
-          const requestData: any = { start, end, transport_mode: transportMode }; // Başlangıç modu gönderilir
-          const endpoint = `${import.meta.env.VITE_BACKEND_API_URL}/api/directions/route/`;
+      const requestData = { start, end, transport_mode: transportMode }; 
+      const endpoint = `${import.meta.env.VITE_BACKEND_API_URL}/api/directions/route/`;
 
-          const response = await axios.post<RouteResponse>(
-              endpoint,
-              requestData,
-              { headers: { 'Authorization': `Token ${token}` } }
-          );
+      console.log('[getRoute] Sending request with data:', requestData);
 
-          const routeData = response.data.routes?.[0]; 
-          if (routeData?.geometry && mapRef.current) { 
-              console.log('[getRoute] Route data received:', routeData);
-              // Yeni rota katmanını çiz
-              const newRouteLayer = L.geoJSON(routeData.geometry, {
-                  style: { color: transportMode === 'transit' ? '#673AB7' : '#4285F4', weight: 5 }
-              }).addTo(mapRef.current);
-              prevRouteLayerRef.current = newRouteLayer;
-              console.log('[getRoute] Previous route layer ref updated.');
-              
-              // Rota bilgilerini state'e kaydet
-              setRouteInfo({
-                  distance: routeData.distance ?? null,
-                  durations: routeData.durations_by_mode || {} // Boş gelirse {} ata
-              });
-              console.log('[getRoute] Route info state updated.');
+      const response = await axios.post<RouteResponse>(
+        endpoint,
+        requestData,
+        { headers: { 'Authorization': `Token ${token}` } }
+      );
 
-              // Haritayı rotaya sığdır
-              const bounds = newRouteLayer.getBounds();
-              mapRef.current.fitBounds(bounds.pad(0.1), { maxZoom: 16 }); 
+      console.log('[getRoute] Received response:', response.data);
 
-          } else {
-              console.warn('[getRoute] No route geometry found in response.');
-              clearRoute(); // Rota yoksa temizle
-          }
-          // ... (Transit info - bu kısım A* ile uyumsuz olabilir, kontrol edilmeli)
-          if (transportMode === 'transit') { 
-              // Transit verisi backend'den geliyorsa gösterilebilir
-              // setTransitInfo(response.data.transit_info);
-              // setShowTransitInfo(true);
-              console.warn("Transit mode display not fully implemented with A* routing.")
-          } else {
-              setShowTransitInfo(false);
-              setTransitInfo(null);
-          }
-      } catch (error: any) {
-          console.error('Error getting route:', error.response?.data || error.message); 
-          clearRoute(); // Hata durumunda temizle
-          toast.error(error.response?.data?.error || 'Failed to get directions');
-          setShowTransitInfo(false);
-          setTransitInfo(null);
-      } finally {
-         setLoadingRoute(false); 
+      const routeData = response.data.routes?.[0]; 
+      console.log('[getRoute] Route data:', routeData);
+
+      if (routeData?.geometry && mapRef.current) { 
+        // Yeni rota katmanını çiz
+        const newRouteLayer = L.geoJSON(routeData.geometry, {
+          style: { color: transportMode === 'transit' ? '#673AB7' : '#4285F4', weight: 5 }
+        }).addTo(mapRef.current);
+        prevRouteLayerRef.current = newRouteLayer;
+
+        // Rota bilgilerini state'e kaydet
+        const routeInfo = {
+          distance: routeData.distance ?? null,
+          durations: routeData.durations_by_mode || {}
+        };
+        console.log('[getRoute] Setting route info:', routeInfo);
+        setRouteInfo(routeInfo);
+
+        // Navigasyon adımlarını hazırla ve state'e kaydet
+        if (routeData.steps && Array.isArray(routeData.steps) && routeData.steps.length > 0) {
+          console.log('[getRoute] Processing navigation steps:', routeData.steps);
+          
+          const navigationSteps = routeData.steps.map(step => {
+            console.log('[getRoute] Processing step:', step);
+            return {
+              instruction: step.instruction || 'Continue straight',
+              distance: step.distance || 0,
+              duration: step.duration || 0,
+              maneuver: step.maneuver || 'straight',
+              bearing: 0
+            };
+          });
+
+          // Son adım olarak varış noktasını ekle
+          navigationSteps.push({
+            instruction: 'You have arrived at your destination',
+            distance: 0,
+            duration: 0,
+            maneuver: 'arrive' as const,
+            bearing: 0
+          });
+
+          console.log('[getRoute] Final navigation steps:', navigationSteps);
+          
+          const newNavState = {
+            isActive: false,
+            steps: navigationSteps,
+            currentStep: 0,
+            remainingDistance: routeData.distance || 0,
+            remainingDuration: routeData.durations_by_mode[transportMode] || 0,
+            isRerouting: false
+          };
+          console.log('[getRoute] Setting navigation state:', newNavState);
+          
+          setNavigation(newNavState);
+          // setShowNavigationUI(true); // Bu satırı kaldırdık
+        } else {
+          console.warn('[getRoute] Invalid or empty steps:', routeData.steps);
+          toast.error('No route steps available');
+        }
+
+        // Haritayı rotaya sığdır
+        const bounds = newRouteLayer.getBounds();
+        mapRef.current.fitBounds(bounds.pad(0.1), { maxZoom: 16 }); 
+      } else {
+        console.warn('[getRoute] Missing route data:', { 
+          hasGeometry: !!routeData?.geometry, 
+          hasMap: !!mapRef.current 
+        });
+        toast.error('Could not display route on map');
       }
+    } catch (error: unknown) {
+      const err = error as Error | AxiosError;
+      console.error('[getRoute] Error:', err);
+      if (axios.isAxiosError(err)) {
+        console.error('[getRoute] Response data:', err.response?.data);
+      }
+      clearRoute();
+      toast.error('Failed to get directions');
+      setShowTransitInfo(false);
+      setTransitInfo(null);
+      
+      // Navigasyon state'ini sıfırla
+      setNavigation({
+        isActive: false,
+        steps: [],
+        currentStep: 0,
+        remainingDistance: 0,
+        remainingDuration: 0,
+        isRerouting: false
+      });
+      setShowNavigationUI(false);
+    } finally {
+      setLoadingRoute(false); 
+    }
   };
 
   // Handle transport mode change
@@ -1172,17 +1259,10 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       }));
 
       // Taksi marker'larını temizle
-      if (map) {
-        taxiMarkers.forEach(marker => {
-          if (map.hasLayer(marker)) {
-            map.removeLayer(marker);
-          }
-        });
-        setTaxiMarkers([]);
-      }
+      clearPoiMarkers();
       
-      // Taksi POIs'leri ekle, taxi tipinde
-      addPoiMarkers(taxiPOIs, taxiIcon);
+      // Taksi POIs'leri ekle
+      addPoiMarkers(taxiPOIs, taxiIcon as L.Icon | L.DivIcon);
       
       // Yükleme bitti
       setIsLoadingTaxis(false);
@@ -1193,6 +1273,92 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       setIsLoadingTaxis(false);
     }
   };
+
+  const startNavigation = () => {
+    if (!source || !destination) {
+      toast.error("Please select both source and destination first!");
+      return;
+    }
+
+    // Konum izlemeyi başlat
+    if ("geolocation" in navigator) {
+      const id = navigator.geolocation.watchPosition(
+        (position) => {
+          const newLocation: Coordinate = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          setUserLocation(newLocation);
+          
+          // Kullanıcının yönünü al (varsa)
+          if (position.coords.heading !== null) {
+            setUserHeading(position.coords.heading);
+          }
+
+          // Rotadan sapma kontrolünü şimdilik kaldırdık
+          // checkRouteDeviation(newLocation);
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+          toast.error("Could not get your location. Please check your GPS settings.");
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
+        }
+      );
+      setWatchId(id);
+    }
+
+    setIsNavigationMode(true);
+    setShowNavigationUI(true);
+    setNavigation(prev => ({ ...prev, isActive: true }));
+  };
+
+  const stopNavigation = () => {
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
+      setWatchId(null);
+    }
+    setIsNavigationMode(false);
+    setShowNavigationUI(false);
+    setNavigation(prev => ({ ...prev, isActive: false }));
+    setUserLocation(null);
+    setUserHeading(null);
+  };
+
+  // checkRouteDeviation fonksiyonunu şimdilik kaldıralım
+  // const checkRouteDeviation = async (currentLocation: Coordinate) => { ... }
+
+  // Kullanıcı konumunu gösteren marker'ı güncelle
+  useEffect(() => {
+    if (!mapRef.current || !userLocation) return;
+
+    // Kullanıcı konumu marker'ı
+    const userMarker = L.marker([userLocation.lat, userLocation.lng], {
+      icon: L.divIcon({
+        className: 'user-location-marker',
+        html: `<div class="user-location-dot" style="transform: rotate(${userHeading || 0}deg);">
+                <div class="dot"></div>
+                <div class="arrow"></div>
+              </div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+      })
+    }).addTo(mapRef.current);
+
+    // Haritayı kullanıcı konumuna odakla (navigasyon modunda)
+    if (isNavigationMode) {
+      mapRef.current.setView([userLocation.lat, userLocation.lng], 18);
+    }
+
+    return () => {
+      if (mapRef.current && mapRef.current.hasLayer(userMarker)) {
+        mapRef.current.removeLayer(userMarker);
+      }
+    };
+  }, [userLocation, userHeading, isNavigationMode]);
 
   return (
     <div className="map-container">
@@ -1264,46 +1430,47 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
           <button 
             onClick={() => source && destination && getRoute(source, destination)} 
             className="route-button" 
-            disabled={loadingRoute || !source || !destination} // Yüklenirken veya nokta yokken disable
+            disabled={loadingRoute || !source || !destination}
           >
             {loadingRoute ? 'Calculating...' : 'Get Directions'}
           </button>
         </div>
-        {/* Rota Bilgisi Gösterimi (Güncellendi) */} 
+
         {routeInfo && (
-          <div className="route-info">
-            {/* Seçili modun süresini göster */} 
-            {routeInfo.durations[transportMode] !== null && (
-                 <span title={`~${Math.round(routeInfo.durations[transportMode]!)} seconds`}> 
-                     🕒 {formatRouteDuration(routeInfo.durations[transportMode])} 
-                 </span>
-            )}
-            {/* Mesafeyi göster */} 
-            {routeInfo.distance !== null && (
-                 <span style={{ marginLeft: '10px' }}> 
-                     📏 {formatRouteDistance(routeInfo.distance)}
-                 </span>
-            )}
-            {/* Varış Zamanını Hesapla ve Göster */} 
-            {routeInfo.durations[transportMode] !== null && departureTime && (
-              (() => {
-                try {
-                  const departureDate = new Date(departureTime); // datetime-local değerini Date'e çevir
-                  departureDate.setSeconds(departureDate.getSeconds() + routeInfo.durations[transportMode]!); // Süreyi ekle (saniye)
-                  const arrivalTime = departureDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }); // Sa:Dk formatında göster
-                  return (
-                    <span style={{ marginLeft: '10px' }}> 
-                        🏁 Arr: {arrivalTime}
-                    </span>
-                  );
-                } catch (e) {
-                  console.error("Error calculating arrival time:", e);
-                  return null; // Hata olursa gösterme
-                }
-              })()
+          <div>
+            <div className="route-info">
+              {routeInfo.durations[transportMode] !== null && (
+                <span title={`~${Math.round(routeInfo.durations[transportMode]!)} seconds`}> 
+                  🕒 {formatRouteDuration(routeInfo.durations[transportMode])} 
+                </span>
+              )}
+              {routeInfo.distance !== null && (
+                <span style={{ marginLeft: '10px' }}> 
+                  📏 {formatRouteDistance(routeInfo.distance)}
+                </span>
+              )}
+              {routeInfo.durations[transportMode] !== null && departureTime && (
+                <span style={{ marginLeft: '10px' }}> 
+                  🏁 Arr: {(() => {
+                    try {
+                      const departureDate = new Date(departureTime);
+                      departureDate.setSeconds(departureDate.getSeconds() + routeInfo.durations[transportMode]!);
+                      return departureDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+                    } catch (e) {
+                      console.error("Error calculating arrival time:", e);
+                      return '--:--';
+                    }
+                  })()}
+                </span>
+              )}
+            </div>
+            {!isNavigationMode && (
+              <button onClick={startNavigation} className="navigation-button">
+                Start Navigation
+              </button>
             )}
           </div>
-        )} 
+        )}
         <div className="point-of-interest-buttons">
           <button onClick={fetchPharmacies} className="poi-button">
             <img src={pharmacyIconUrl} alt="Pharmacy" width="20" height="20"/> Duty Pharmacies
@@ -1361,6 +1528,139 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       </div>
       
       <div id="map" style={{ height: '100%', width: '100%' }} />
+
+      {/* Navigasyon UI */}
+      {showNavigationUI && (
+        <div className="navigation-panel">
+          <div className="navigation-header" style={{
+            borderBottom: '1px solid #eee',
+            paddingBottom: '10px',
+            marginBottom: '10px'
+          }}>
+            {/* Aktif adım - büyük gösterim */}
+            <div className="current-step" style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: '15px'
+            }}>
+              <div className="maneuver-icon" style={{
+                fontSize: '24px',
+                marginRight: '15px',
+                width: '40px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#f5f5f5',
+                borderRadius: '50%'
+              }}>
+                {navigation.steps[navigation.currentStep]?.maneuver === 'turn-right' && '➡️'}
+                {navigation.steps[navigation.currentStep]?.maneuver === 'turn-left' && '⬅️'}
+                {navigation.steps[navigation.currentStep]?.maneuver === 'straight' && '⬆️'}
+                {navigation.steps[navigation.currentStep]?.maneuver === 'arrive' && '🏁'}
+              </div>
+              <div className="step-info" style={{ flex: 1 }}>
+                <div className="instruction" style={{
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  marginBottom: '5px'
+                }}>
+                  {navigation.steps[navigation.currentStep]?.instruction || 'Calculating route...'}
+                </div>
+                <div className="step-distance" style={{
+                  fontSize: '14px',
+                  color: '#666'
+                }}>
+                  {formatRouteDistance(navigation.steps[navigation.currentStep]?.distance)}
+                </div>
+              </div>
+            </div>
+
+            {/* Özet bilgiler ve Sonlandır butonu */}
+            <div className="navigation-summary" style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div className="remaining-info" style={{
+                fontSize: '14px',
+                color: '#666'
+              }}>
+                <span>🕒 {formatRouteDuration(navigation.remainingDuration)}</span>
+                <span style={{ marginLeft: '10px' }}>
+                  📏 {formatRouteDistance(navigation.remainingDistance)}
+                </span>
+              </div>
+              <button 
+                onClick={stopNavigation} 
+                style={{
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                End Navigation
+              </button>
+            </div>
+          </div>
+          
+          {/* Adım adım talimatlar listesi */}
+          <div className="navigation-steps" style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}>
+            {navigation.steps.map((step, index) => (
+              <div 
+                key={index} 
+                className={index === navigation.currentStep ? 'active-step' : 'step-item'}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '10px',
+                  backgroundColor: index === navigation.currentStep ? '#f0f0f0' : 'transparent',
+                  borderRadius: '4px',
+                  transition: 'background-color 0.3s'
+                }}
+              >
+                <div style={{
+                  width: '30px',
+                  height: '30px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: index === navigation.currentStep ? '#4285f4' : '#f5f5f5',
+                  borderRadius: '50%',
+                  marginRight: '10px'
+                }}>
+                  {step.maneuver === 'turn-right' && '➡️'}
+                  {step.maneuver === 'turn-left' && '⬅️'}
+                  {step.maneuver === 'straight' && '⬆️'}
+                  {step.maneuver === 'arrive' && '🏁'}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    fontSize: '14px',
+                    color: index === navigation.currentStep ? '#000' : '#666'
+                  }}>
+                    {step.instruction}
+                  </div>
+                  <div style={{
+                    fontSize: '12px',
+                    color: '#888',
+                    marginTop: '2px'
+                  }}>
+                    {formatRouteDistance(step.distance)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
