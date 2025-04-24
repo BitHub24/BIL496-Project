@@ -20,27 +20,64 @@ import networkx as nx # networkx import edildi
 import osmnx as ox # osmnx import edildi
 from geopy.distance import great_circle # Heuristic için eklendi
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # --- Graf Yükleme (Global Değişkenle) --- 
 GRAPH_FILE_PATH = os.path.join(settings.BASE_DIR, 'data', 'ankara_drive.graphml')
-GRAPH = None # Global değişken
+GRAPH = None
 GRAPH_LOAD_TIME = None
+GRAPH_URL = os.environ.get('GRAPH_URL', 'https://example.com/path/to/ankara_drive.graphml') # URL'yi ayarla (örneğin: bir bulut depolama servisi)
+
+def download_file(url, destination_file_name):
+    """Downloads a file from the given URL to the specified local path."""
+    # Ensure the directory exists
+    directory = os.path.dirname(destination_file_name)
+    logger.info(f"directory: {directory}")
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        logger.info(f"Created directory {directory}.")
+
+    try:
+        # Send GET request to download the file
+        response = requests.get(url)
+        
+        # Check if the request was successful
+        if response.status_code == 200:
+            with open(destination_file_name, 'wb') as f:
+                f.write(response.content)
+            logger.info(f"Downloaded file from {url} to local file {destination_file_name}.")
+        else:
+            logger.error(f"Failed to download file. HTTP Status Code: {response.status_code}")
+            raise Exception(f"Failed to download file. Status Code: {response.status_code}")
+    except Exception as e:
+        logger.error(f"Error downloading file: {e}")
+        raise
 
 def load_graph_once():
-    """Graf dosyasını diskten sadece bir kez yükler ve global değişkende saklar."""
+    """Load the graph file from disk only once and store it in a global variable."""
     global GRAPH, GRAPH_LOAD_TIME
     if GRAPH is None:
         start_time = time.time()
+
+        # Check if the graph file exists locally
         if os.path.exists(GRAPH_FILE_PATH):
             logger.info(f"Loading graph from {GRAPH_FILE_PATH} (this happens only once)...")
+        else:
+            # If the graph file does not exist locally, attempt to download it
+            logger.info(f"Graph file not found at {GRAPH_FILE_PATH}. Attempting to download from URL...")
+            download_file(GRAPH_URL, GRAPH_FILE_PATH)
+            
+
+        # Load the graph after download or from disk
+        if os.path.exists(GRAPH_FILE_PATH):
             GRAPH = ox.load_graphml(GRAPH_FILE_PATH)
             GRAPH_LOAD_TIME = time.time() - start_time
             logger.info(f"Graph loaded successfully in {GRAPH_LOAD_TIME:.2f} seconds.")
         else:
-            logger.error(f"Graph file not found at {GRAPH_FILE_PATH}! Run 'python manage.py create_graph' first.")
-            # Sunucu başlangıcında hata vermek veya boş bir graf ile devam etmek yerine None bırakabiliriz.
-            # İstek sırasında kontrol edilecek.
+            logger.error(f"Graph file still not found after download attempt. Cannot load the graph.")
+            GRAPH = None  # You might want to handle this case more gracefully, depending on your app needs.
+
     return GRAPH
 
 # Sunucu başladığında grafı yüklemeyi dene
