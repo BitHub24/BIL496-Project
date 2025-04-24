@@ -1,18 +1,21 @@
-# Build stage
 FROM node:20 AS build
 WORKDIR /app
 
-# Allow Vite env variable to be passed in
-ARG VITE_GOOGLE_OAUTH_CLIENT_ID
-ENV VITE_GOOGLE_OAUTH_CLIENT_ID=$VITE_GOOGLE_OAUTH_CLIENT_ID
+ARG VITE_GOOGLE_OAUTH_CLIENT_ID=invalid_value
+ARG VITE_BACKEND_API_URL=http://localhost:8000
 
+ENV VITE_GOOGLE_OAUTH_CLIENT_ID=$VITE_GOOGLE_OAUTH_CLIENT_ID
+ENV VITE_BACKEND_API_URL=$VITE_BACKEND_API_URL
 ENV NODE_OPTIONS=--openssl-legacy-provider
 
 COPY package*.json ./
 RUN npm install
 COPY . .
 
-# Vite will pick this up via import.meta.env.*
+RUN echo "Building with:"
+RUN echo "  VITE_GOOGLE_OAUTH_CLIENT_ID=$VITE_GOOGLE_OAUTH_CLIENT_ID"
+RUN echo "  VITE_BACKEND_API_URL=$VITE_BACKEND_API_URL"
+
 RUN npm run build
 
 # Serve stage
