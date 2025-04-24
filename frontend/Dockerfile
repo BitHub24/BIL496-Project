@@ -13,8 +13,9 @@ RUN npm install
 COPY . .
 
 # 👇 Create .env.production dynamically
-RUN echo "VITE_GOOGLE_OAUTH_CLIENT_ID=$VITE_GOOGLE_OAUTH_CLIENT_ID" >> .env.production && \
-    echo "VITE_BACKEND_API_URL=$VITE_BACKEND_API_URL" >> .env.production
+RUN echo "VITE_GOOGLE_OAUTH_CLIENT_ID=${VITE_GOOGLE_OAUTH_CLIENT_ID}" >> .env.production && \
+    echo "VITE_BACKEND_API_URL=${VITE_BACKEND_API_URL}" >> .env.production
+
 
 # Build using .env.production (Vite picks it up automatically)
 RUN npm run build
