@@ -27,4 +27,5 @@ urlpatterns = [
     path('api/wifi-points/', include('wifi_points.urls')),
     path('api/bicycle-points/', include('bicycle_points.urls')),
     path('api/routing/', include('routing.urls')),
+    path('api/taxi-stations/', include('taxi_stations.urls')),
 ]

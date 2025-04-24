@@ -29,6 +29,7 @@ import destinationMarkerIcon from '../assets/destination-marker.svg';
 import pharmacyIconUrl from '../assets/eczane.svg';
 import bicycleIconUrl from '../assets/bicycle.png';
 import wifiIconUrl from '../assets/wifi.png';
+import taxiIconUrl from '../assets/taxi.svg';
 import HamburgerMenu from './HamburgerMenu';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';  // Import image for iconUrl
 import markerIconRetina from 'leaflet/dist/images/marker-icon-2x.png';  // Import image for iconRetinaUrl
@@ -64,6 +65,13 @@ const destinationIcon = new L.Icon({
 // Custom icons for points of interest
 const pharmacyIcon = new L.Icon({
   iconUrl: pharmacyIconUrl,
+  iconSize: [25, 25],
+  iconAnchor: [12, 25],
+  popupAnchor: [1, -34]
+});
+
+const taxiIcon = new L.Icon({
+  iconUrl: taxiIconUrl,
   iconSize: [25, 25],
   iconAnchor: [12, 25],
   popupAnchor: [1, -34]
@@ -117,7 +125,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   const [transitInfo, setTransitInfo] = useState<any>(null);
   const [showTransitInfo, setShowTransitInfo] = useState<boolean>(false);
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
-  const [openControl, setOpenControl] = useState<'styles' | 'menu' | null>(null);
+  const [openControl, setOpenControl] = useState<'styles' | 'menu' | 'poi' | null>(null);
   const [dataCheckStatus, setDataCheckStatus] = useState<string>('idle'); // 'idle', 'checking', 'exists', 'fetched', 'failed', 'error'
   const [activeInput, setActiveInput] = useState<'source' | 'destination'>('destination');
   const [loadingPharmacies, setLoadingPharmacies] = useState<boolean>(false);
@@ -132,6 +140,9 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   const [showBicycle, setShowBicycle] = useState<boolean>(false);
   const [loadingWifi, setLoadingWifi] = useState<boolean>(false);
   const [loadingBicycle, setLoadingBicycle] = useState<boolean>(false);
+  const [taxiMarkers, setTaxiMarkers] = useState<L.Marker[]>([]);
+  const [taxiStations, setTaxiStations] = useState<any[]>([]);
+  const [isLoadingTaxis, setIsLoadingTaxis] = useState<boolean>(false);
   
   // İşaretçiler için useState yerine useRef kullan
   const sourceMarkerRef = useRef<L.Marker | null>(null);
@@ -191,6 +202,12 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
 
     // Map click listener
     mapInstance.on('click', handleMapClick);
+
+    const clearTaxiMarkers = () => {
+      if (!map) return;
+      taxiMarkers.forEach(marker => map.removeLayer(marker));
+      setTaxiMarkers([]);
+    };
 
     // Clean up map instance on component unmount
     return () => {
@@ -1104,6 +1121,77 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   };
   // -----------------------------------------
 
+  const fetchTaxiStations = async () => {
+    try {
+      if (!map) return;
+      
+      // Eğer konum seçilmemişse uyarı göster
+      if (!source) {
+        setIsToastError(true);
+        toast.error('Please select a location first');
+        setTimeout(() => setIsToastError(false), 1000);
+        return;
+      }
+      
+      // Yükleme başladı
+      setIsLoadingTaxis(true);
+      
+      // Kullanıcının konumunu kullanarak API'ye istek at
+      const response = await axios.get(
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/taxi-stations/`,
+        {
+          params: {
+            location: `${source.lat},${source.lng}`,
+            radius: 5000
+          }
+        }
+      );
+
+      // Yanıtı kontrol et
+      if (!response.data || response.data.error) {
+        toast.error('Could not fetch taxi stations: ' + (response.data?.error || 'Unknown error'));
+        setIsLoadingTaxis(false);
+        return;
+      }
+
+      // Backend'den gelen verileri sakla
+      setTaxiStations(response.data);
+      console.log('Taxi stations:', response.data);
+
+      // PointOfInterest listesine çevirerek haritada gösterebiliriz
+      const taxiPOIs: PointOfInterest[] = response.data.map((station: any) => ({
+        id: Math.random(), // Geçici ID
+        name: station.name,
+        address: '', // Bu bilgi yok
+        phone: station.phoneNumber || 'No phone information',
+        lat: station.location.lat,
+        lng: station.location.lng,
+        extra_info: `Rating: ${station.rating || 'N/A'}`
+      }));
+
+      // Taksi marker'larını temizle
+      if (map) {
+        taxiMarkers.forEach(marker => {
+          if (map.hasLayer(marker)) {
+            map.removeLayer(marker);
+          }
+        });
+        setTaxiMarkers([]);
+      }
+      
+      // Taksi POIs'leri ekle, taxi tipinde
+      addPoiMarkers(taxiPOIs, taxiIcon);
+      
+      // Yükleme bitti
+      setIsLoadingTaxis(false);
+
+    } catch (error) {
+      console.error('Error fetching taxi stations:', error);
+      toast.error('Error fetching taxi stations');
+      setIsLoadingTaxis(false);
+    }
+  };
+
   return (
     <div className="map-container">
       <div className="search-container">
@@ -1240,14 +1328,33 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
                     isOpen={openControl === 'styles'} 
                     onToggle={() => setOpenControl(openControl === 'styles' ? null : 'styles')} 
                   />}
-          <div className="layer-toggle-buttons">
-            <button onClick={toggleWifiLayer} className={`poi-toggle-button layer-toggle-btn ${showWifi ? 'active' : ''} ${loadingWifi ? 'loading' : ''}`} title="Toggle WiFi Hotspots" disabled={loadingWifi}>
-              <img src={wifiIconUrl} alt="WiFi" width="20" height="20"/>
-            </button>
-            <button onClick={toggleBicycleLayer} className={`poi-toggle-button layer-toggle-btn ${showBicycle ? 'active' : ''} ${loadingBicycle ? 'loading' : ''}`} title="Toggle Bicycle Stations" disabled={loadingBicycle}>
-              <img src={bicycleIconUrl} alt="Bicycle" width="20" height="20"/>
+          <div className="poi-menu-toggle-wrapper">
+            <button onClick={() => setOpenControl(openControl === 'poi' ? null : 'poi')} className="poi-menu-toggle-button">
+              <span className="poi-icons">
+                <span className="taxi-text">T</span>
+                <img src={wifiIconUrl} alt="WiFi" width="20" height="20"/>
+                <img src={bicycleIconUrl} alt="Bicycle" width="20" height="20"/>
+              </span>
+              <span>{openControl === 'poi' ? '▲' : '▼'}</span>
             </button>
           </div>
+
+          {openControl === 'poi' && (
+            <div className="poi-menu-content">
+              <button onClick={fetchTaxiStations} className={`poi-menu-button ${isLoadingTaxis ? 'loading' : ''}`} title="Find Nearby Taxis" disabled={isLoadingTaxis}>
+                <span className="taxi-text">T</span>
+                <span>Find Taxis</span>
+              </button>
+              <button onClick={toggleWifiLayer} className={`poi-menu-button ${showWifi ? 'active' : ''} ${loadingWifi ? 'loading' : ''}`} title="Toggle WiFi Hotspots" disabled={loadingWifi}>
+                <img src={wifiIconUrl} alt="WiFi" width="20" height="20"/>
+                <span>WiFi Points</span>
+              </button>
+              <button onClick={toggleBicycleLayer} className={`poi-menu-button ${showBicycle ? 'active' : ''} ${loadingBicycle ? 'loading' : ''}`} title="Toggle Bicycle Stations" disabled={loadingBicycle}>
+                <img src={bicycleIconUrl} alt="Bicycle" width="20" height="20"/>
+                <span>Bicycle Stations</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
       
