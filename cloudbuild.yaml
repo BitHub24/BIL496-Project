@@ -1,22 +1,24 @@
-availableSecrets:
-  secretManager:
-    - versionName: projects/1094631205138/secrets/VITE_GOOGLE_OAUTH_CLIENT_ID/versions/latest
-      env: VITE_GOOGLE_OAUTH_CLIENT_ID
-
 steps:
   - name: 'gcr.io/cloud-builders/docker'
+    secretEnv: ['VITE_GOOGLE_OAUTH_CLIENT_ID', 'VITE_BACKEND_API_URL']
     args:
       - 'build'
       - '-t'
       - 'gcr.io/bold-bastion-454011-k5/frontend-app'
+      - '-f'
+      - './frontend/Dockerfile'
       - '--build-arg'
-      - 'VITE_GOOGLE_OAUTH_CLIENT_ID=$VITE_GOOGLE_OAUTH_CLIENT_ID'
+      - 'VITE_GOOGLE_OAUTH_CLIENT_ID=$$VITE_GOOGLE_OAUTH_CLIENT_ID'
+      - '--build-arg'
+      - 'VITE_BACKEND_API_URL=$$VITE_BACKEND_API_URL'
       - './frontend'
-    secretEnv: ['VITE_GOOGLE_OAUTH_CLIENT_ID']
+    id: docker-build
 
+  # Step 2: Push image
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/bold-bastion-454011-k5/frontend-app']
 
+  # Step 3: Deploy to Cloud Run
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'run'
@@ -26,6 +28,14 @@ steps:
       - '--platform=managed'
       - '--region=us-central1'
       - '--allow-unauthenticated'
+
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/1094631205138/secrets/VITE_GOOGLE_OAUTH_CLIENT_ID/versions/latest
+      env: VITE_GOOGLE_OAUTH_CLIENT_ID
+    - versionName: projects/1094631205138/secrets/VITE_BACKEND_API_URL/versions/latest
+      env: VITE_BACKEND_API_URL
 
 images:
   - 'gcr.io/bold-bastion-454011-k5/frontend-app'
