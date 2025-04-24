@@ -8,8 +8,8 @@ steps:
         docker build \
           -t gcr.io/bold-bastion-454011-k5/frontend-app \
           -f ./frontend/Dockerfile \
-          --build-arg VITE_GOOGLE_OAUTH_CLIENT_ID=$VITE_GOOGLE_OAUTH_CLIENT_ID \
-          --build-arg VITE_BACKEND_API_URL=$VITE_BACKEND_API_URL \
+          --build-arg VITE_GOOGLE_OAUTH_CLIENT_ID=$$VITE_GOOGLE_OAUTH_CLIENT_ID \
+          --build-arg VITE_BACKEND_API_URL=$$VITE_BACKEND_API_URL \
           ./frontend
     id: docker-build
 
