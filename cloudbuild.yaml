@@ -1,17 +1,16 @@
 steps:
   - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
     secretEnv: ['VITE_GOOGLE_OAUTH_CLIENT_ID', 'VITE_BACKEND_API_URL']
     args:
-      - 'build'
-      - '-t'
-      - 'gcr.io/bold-bastion-454011-k5/frontend-app'
-      - '-f'
-      - './frontend/Dockerfile'
-      - '--build-arg'
-      - 'VITE_GOOGLE_OAUTH_CLIENT_ID=$$VITE_GOOGLE_OAUTH_CLIENT_ID'
-      - '--build-arg'
-      - 'VITE_BACKEND_API_URL=$$VITE_BACKEND_API_URL'
-      - './frontend'
+      - '-c'
+      - |
+        docker build \
+          -t gcr.io/bold-bastion-454011-k5/frontend-app \
+          -f ./frontend/Dockerfile \
+          --build-arg VITE_GOOGLE_OAUTH_CLIENT_ID=$VITE_GOOGLE_OAUTH_CLIENT_ID \
+          --build-arg VITE_BACKEND_API_URL=$VITE_BACKEND_API_URL \
+          ./frontend
     id: docker-build
 
   # Step 2: Push image
