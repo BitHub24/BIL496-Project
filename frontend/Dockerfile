@@ -1,21 +1,22 @@
 FROM node:20 AS build
 WORKDIR /app
 
-ARG VITE_GOOGLE_OAUTH_CLIENT_ID=invalid_value
-ARG VITE_BACKEND_API_URL=http://localhost:8000
+# Accept secrets as build args
+ARG VITE_GOOGLE_OAUTH_CLIENT_ID
+ARG VITE_BACKEND_API_URL
 
-ENV VITE_GOOGLE_OAUTH_CLIENT_ID=$VITE_GOOGLE_OAUTH_CLIENT_ID
-ENV VITE_BACKEND_API_URL=$VITE_BACKEND_API_URL
 ENV NODE_OPTIONS=--openssl-legacy-provider
 
 COPY package*.json ./
 RUN npm install
+
 COPY . .
 
-RUN echo "Building with:"
-RUN echo "  VITE_GOOGLE_OAUTH_CLIENT_ID=$VITE_GOOGLE_OAUTH_CLIENT_ID"
-RUN echo "  VITE_BACKEND_API_URL=$VITE_BACKEND_API_URL"
+# 👇 Create .env.production dynamically
+RUN echo "VITE_GOOGLE_OAUTH_CLIENT_ID=$VITE_GOOGLE_OAUTH_CLIENT_ID" >> .env.production && \
+    echo "VITE_BACKEND_API_URL=$VITE_BACKEND_API_URL" >> .env.production
 
+# Build using .env.production (Vite picks it up automatically)
 RUN npm run build
 
 # Serve stage
