@@ -1,6 +1,7 @@
-secrets:
-  - secretEnv:
-      VITE_GOOGLE_OAUTH_CLIENT_ID: projects/1094631205138/secrets/VITE_GOOGLE_OAUTH_CLIENT_ID/versions/latest
+availableSecrets:
+  secretManager:
+    - versionName: projects/1094631205138/secrets/VITE_GOOGLE_OAUTH_CLIENT_ID/versions/latest
+      env: VITE_GOOGLE_OAUTH_CLIENT_ID
 
 steps:
   - name: 'gcr.io/cloud-builders/docker'
