@@ -70,8 +70,9 @@ const pharmacyIcon = new L.Icon({
   popupAnchor: [1, -34]
 });
 
-const taxiIcon = new L.Icon({
-  iconUrl: taxiIconUrl,
+const taxiIcon = new L.DivIcon({
+  className: 'custom-taxi-icon',
+  html: '<div style="background-color: yellow; color: black; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-weight: bold; border: 1px solid black;">T</div>',
   iconSize: [25, 25],
   iconAnchor: [12, 25],
   popupAnchor: [1, -34]
@@ -370,7 +371,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   };
   // ----------------------------------------------------------------
 
-  const addPoiMarkers = (points: PointOfInterest[], icon: L.Icon, titleKey: keyof PointOfInterest = 'name') => {
+  const addPoiMarkers = (points: PointOfInterest[], icon: L.Icon | L.DivIcon, titleKey: keyof PointOfInterest = 'name') => {
     console.log('[addPoiMarkers] Function called with points:', points); 
     if (!mapRef.current) {
       console.error('[addPoiMarkers] Error: Map is not initialized.');
@@ -400,7 +401,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         let popupContent = `<div><strong>${point.name || 'Location'}</strong>`;
         const address = point.address || ''; // Adresi al, yoksa boş string
         if (address) popupContent += `<p>${address}</p>`;
-        if (point.phone) popupContent += `<p>Tel: ${point.phone}</p>`;
+        if (point.phone) popupContent += `<p>Tel: <a href="tel:${point.phone.replace(/\s+/g, '')}" style="color: #4285F4; text-decoration: none;">${point.phone}</a></p>`;
         if (point.distance) popupContent += `<p>Mesafe: ${point.distance.toFixed(2)} km</p>`;
         
         // --- Rota Oluştur Butonu Eklendi (WiFi/Bisiklet için) --- 
@@ -960,7 +961,8 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         let popupContent = `<div><strong>${title}</strong>`;
         const address = point.address || '';
         if (address) popupContent += `<p>${address}</p>`;
-        // Add other relevant properties to popup if needed
+        if (point.phone) popupContent += `<p>Tel: <a href="tel:${point.phone.replace(/\s+/g, '')}" style="color: #4285F4; text-decoration: none;">${point.phone}</a></p>`;
+        if (point.distance) popupContent += `<p>Mesafe: ${point.distance.toFixed(2)} km</p>`;
         
         // --- Rota Oluştur Butonu Eklendi (WiFi/Bisiklet için) --- 
         popupContent += `<div><button 
