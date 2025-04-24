@@ -203,10 +203,10 @@ const Login = () => {
 
       // Parse the response
       const data = await response.json();
-      console.log("Login response data:", data); // Log the response to check its structure
+      if (import.meta.env.DEV)console.log("Login response data:", data); // Log the response to check its structure
 
       // Store API keys AND the authentication token
-      if (data.token) { 
+      if (data.token) {
         localStorage.setItem("token", data.token); // Store the token
         console.log("Token stored in localStorage");
       } else {
@@ -236,8 +236,8 @@ const Login = () => {
   };
   const googleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
-      console.log('Access token:', tokenResponse.access_token);
-      
+      if (import.meta.env.DEV)console.log('Access token:', tokenResponse.access_token);
+
       try {
         // Send the access token to the backend to verify and handle user creation
         const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
@@ -245,9 +245,9 @@ const Login = () => {
             Authorization: `Bearer ${tokenResponse.access_token}`,
           },
         });
-  
+
         const googleAuthResult = await res.json();
-        console.log('Google Auth Result:', googleAuthResult);
+        if (import.meta.env.DEV)console.log('Google Auth Result:', googleAuthResult);
         if (googleAuthResult.email) {
           setLoading(true);
           const response = await fetch(`${BACKEND_API_URL}/api/users/google-auth/`, {
@@ -257,18 +257,36 @@ const Login = () => {
             },
             body: JSON.stringify(googleAuthResult),
           });
-    
+
           if (!response.ok) {
-            throw new Error("Registration failed"+response.statusText);
+            throw new Error("Registration failed" + response.statusText);
+          }
+          else{
+            const data = await response.json();
+            if (data.token) { 
+              localStorage.setItem("token", data.token); // Store the token
+              console.log("Token stored in localStorage");
+            } else {
+              console.error("Token not found in login response!");
+              throw new Error("Login successful, but token missing in response."); // Throw error if token is missing
+            }
+
+            if (data.google_api_key) {
+              localStorage.setItem("googleApiKey", data.google_api_key);
+            }
+            if (data.here_api_key) {
+              localStorage.setItem("hereApiKey", data.here_api_key);
+            }
           }
           navigate('/map');
-        } else {
+        } 
+        else {
           console.error('Authentication failed:', googleAuthResult);
         }
       } catch (error) {
         console.error('Error during Google login process:', error);
       }
-      finally{
+      finally {
         setLoading(false);
       }
     },
@@ -276,7 +294,7 @@ const Login = () => {
       console.error('Google Login Failed:', error);
     },
   });
-  
+
   return (
     <LoginContainer>
       {loading ? (

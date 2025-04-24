@@ -90,7 +90,9 @@ class GoogleAuthView(generics.CreateAPIView):
 
         return Response({
             'user': user_serializer.data,
-            'token': token.key
+            'token': token.key,
+            'here_api_key':settings.HERE_API_KEY,
+            'google_api_key':settings.GOOGLE_API_KEY
         }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
