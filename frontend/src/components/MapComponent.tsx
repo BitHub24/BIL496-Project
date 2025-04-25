@@ -1,6 +1,6 @@
 /// <reference types="react" />
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import './MapComponent.css';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -29,10 +29,15 @@ import destinationMarkerIcon from '../assets/destination-marker.svg';
 import pharmacyIconUrl from '../assets/eczane.svg';
 import bicycleIconUrl from '../assets/bicycle.png';
 import wifiIconUrl from '../assets/wifi.png';
+import taxiIconUrl from '../assets/taxi.svg';
 import HamburgerMenu from './HamburgerMenu';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';  // Import image for iconUrl
 import markerIconRetina from 'leaflet/dist/images/marker-icon-2x.png';  // Import image for iconRetinaUrl
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';  // Import image for shadowUrl
+import SaveFavoriteModal from './SaveFavoriteModal';
+import LeftSideMenu from './LeftSideMenu';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faRoute, faLocationArrow } from '@fortawesome/free-solid-svg-icons';
 
 // Fix Leaflet default icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -69,6 +74,14 @@ const pharmacyIcon = new L.Icon({
   popupAnchor: [1, -34]
 });
 
+const taxiIcon = new L.DivIcon({
+  className: 'custom-taxi-icon',
+  html: '<div style="background-color: yellow; color: black; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-weight: bold; border: 1px solid black;">T</div>',
+  iconSize: [25, 25],
+  iconAnchor: [12, 25],
+  popupAnchor: [1, -34]
+});
+
 const bicycleIcon = new L.Icon({
   iconUrl: bicycleIconUrl,
   iconSize: [25, 25],
@@ -90,6 +103,24 @@ const ANKARA_BOUNDS: L.LatLngBoundsLiteral = [
   [40.1, 33.2]  // Northeast coordinates
 ];
 
+// Navigasyon için yeni tipler
+interface NavigationStep {
+  instruction: string;
+  distance: number;
+  duration: number;
+  maneuver: string;
+  bearing: number;
+}
+
+interface NavigationState {
+  isActive: boolean;
+  currentStep: number;
+  steps: NavigationStep[];
+  remainingDistance: number;
+  remainingDuration: number;
+  isRerouting: boolean;
+}
+
 // Yeni Prop Arayüzü
 interface MapComponentProps {
   isLoggedIn: boolean;
@@ -104,6 +135,8 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
     return now.toISOString().slice(0, 16);
   };
 
+  const [showFavoriteModal, setShowFavoriteModal] = useState(false);
+  const [favoriteToSave, setFavoriteToSave] = useState<{ lat: number; lng: number; address: string } | null>(null);
   const [map, setMap] = useState<L.Map | null>(null);
   const [source, setSource] = useState<Coordinate | null>(null);
   const [destination, setDestination] = useState<Coordinate | null>(null);
@@ -117,7 +150,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   const [transitInfo, setTransitInfo] = useState<any>(null);
   const [showTransitInfo, setShowTransitInfo] = useState<boolean>(false);
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
-  const [openControl, setOpenControl] = useState<'styles' | 'menu' | null>(null);
+  const [openControl, setOpenControl] = useState<'styles' | 'menu' | 'poi' | null>(null);
   const [dataCheckStatus, setDataCheckStatus] = useState<string>('idle'); // 'idle', 'checking', 'exists', 'fetched', 'failed', 'error'
   const [activeInput, setActiveInput] = useState<'source' | 'destination'>('destination');
   const [loadingPharmacies, setLoadingPharmacies] = useState<boolean>(false);
@@ -132,6 +165,9 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   const [showBicycle, setShowBicycle] = useState<boolean>(false);
   const [loadingWifi, setLoadingWifi] = useState<boolean>(false);
   const [loadingBicycle, setLoadingBicycle] = useState<boolean>(false);
+  const [taxiMarkers, setTaxiMarkers] = useState<L.Marker[]>([]);
+  const [taxiStations, setTaxiStations] = useState<any[]>([]);
+  const [isLoadingTaxis, setIsLoadingTaxis] = useState<boolean>(false);
   
   // İşaretçiler için useState yerine useRef kullan
   const sourceMarkerRef = useRef<L.Marker | null>(null);
@@ -149,6 +185,24 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   const wifiMarkersRef = useRef<L.LayerGroup | null>(null);
   const bicycleMarkersRef = useRef<L.LayerGroup | null>(null);
 
+  // Navigasyon için yeni state'ler
+  const [navigation, setNavigation] = useState<NavigationState>({
+    isActive: false,
+    currentStep: 0,
+    steps: [],
+    remainingDistance: 0,
+    remainingDuration: 0,
+    isRerouting: false
+  });
+  const [userLocation, setUserLocation] = useState<Coordinate | null>(null);
+  const [userHeading, setUserHeading] = useState<number | null>(null);
+  const [watchId, setWatchId] = useState<number | null>(null);
+  const [isNavigationMode, setIsNavigationMode] = useState(false);
+  const [showNavigationUI, setShowNavigationUI] = useState(false);
+
+  // Add a new state variable to track pharmacy visibility
+  const [showPharmacies, setShowPharmacies] = useState<boolean>(false);
+
   useEffect(() => {
     const mapInstance = L.map('map', {
       center: ANKARA_CENTER,
@@ -156,7 +210,8 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       maxBounds: ANKARA_BOUNDS,
       minZoom: 11,
       maxZoom: 18,
-      zoomControl: false
+      zoomControl: false,
+      attributionControl:false
     });
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -191,6 +246,12 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
 
     // Map click listener
     mapInstance.on('click', handleMapClick);
+
+    const clearTaxiMarkers = () => {
+      if (!map) return;
+      taxiMarkers.forEach(marker => map.removeLayer(marker));
+      setTaxiMarkers([]);
+    };
 
     // Clean up map instance on component unmount
     return () => {
@@ -353,7 +414,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   };
   // ----------------------------------------------------------------
 
-  const addPoiMarkers = (points: PointOfInterest[], icon: L.Icon, titleKey: keyof PointOfInterest = 'name') => {
+  const addPoiMarkers = (points: PointOfInterest[], icon: L.Icon | L.DivIcon, titleKey: keyof PointOfInterest = 'name') => {
     console.log('[addPoiMarkers] Function called with points:', points); 
     if (!mapRef.current) {
       console.error('[addPoiMarkers] Error: Map is not initialized.');
@@ -383,7 +444,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         let popupContent = `<div><strong>${point.name || 'Location'}</strong>`;
         const address = point.address || ''; // Adresi al, yoksa boş string
         if (address) popupContent += `<p>${address}</p>`;
-        if (point.phone) popupContent += `<p>Tel: ${point.phone}</p>`;
+        if (point.phone) popupContent += `<p>Tel: <a href="tel:${point.phone.replace(/\s+/g, '')}" style="color: #4285F4; text-decoration: none;">${point.phone}</a></p>`;
         if (point.distance) popupContent += `<p>Mesafe: ${point.distance.toFixed(2)} km</p>`;
         
         // --- Rota Oluştur Butonu Eklendi (WiFi/Bisiklet için) --- 
@@ -435,6 +496,14 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   };
 
   const fetchPharmacies = async () => {
+    // If pharmacies are already shown, just hide them and return
+    if (showPharmacies) {
+      clearPoiMarkers();
+      clearRoute(); // Clear the route when hiding pharmacies
+      setShowPharmacies(false);
+      return;
+    }
+
     if (!source) {
       toast.error("Current location not available to find nearby pharmacies.");
       return;
@@ -475,6 +544,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
             alert('No duty pharmacies found near the selected location for today.'); 
             // POI marker'larını temizleyebiliriz?
             clearPoiMarkers();
+            setShowPharmacies(false);
             return;
         }
         
@@ -504,6 +574,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         }
 
         clearRoute(); // Sadece mevcut rotayı temizle
+        setShowPharmacies(true);
 
     } catch (error: any) {
       // 404 hatası artık veri yok demek, kullanıcıya bunu söyleyebiliriz
@@ -511,10 +582,13 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
           console.warn('[fetchPharmacies] No duty pharmacies found in backend for today.');
           alert('No duty pharmacies found for today. Data might be updating, please try again later.');
           clearPoiMarkers(); // Hata durumunda da markerları temizle
+          setShowPharmacies(false);
       } else {
           console.error('[fetchPharmacies] Error fetching pharmacies:', error.response?.data || error.message);
           alert(`Error fetching pharmacies: ${error.response?.statusText || error.message}`);
       }
+    } finally {
+      setLoadingPharmacies(false);
     }
   };
 
@@ -597,61 +671,74 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   }, [mapRef]); // Only run when map is initialized
 
   const saveMarkerAsFavorite = async (lat: number, lng: number, address: string) => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-          toast.error("Please log in to save favorites.");
-          return;
+    setFavoriteToSave({ lat, lng, address });
+    setShowFavoriteModal(true);
+  };  
+
+  const handleSaveFavorite = async (name: string, tag: string | null) => {
+    if (!favoriteToSave) return;
+    const { lat, lng, address } = favoriteToSave;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error("Please log in to save favorites.");
+      return;
+    }
+    try {
+      const response = await axios.post(
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/users/favorites/`,
+        { name, address, latitude: lat, longitude: lng, tag },
+        { headers: { 'Authorization': `Token ${token}` } }
+      );
+      if (response.status === 201) {
+        toast.success(`'${name}' added to favorites!`);
+        if (mapRef.current) mapRef.current.closePopup();
+      } else {
+        toast.error("Failed to save favorite. Unexpected response.");
       }
-      const favName = prompt("Enter a name for this favorite location:", address.split(',')[0]);
-      if (!favName) return;
-      const favTagInput = prompt("Enter a tag (e.g., Home, Work) or leave empty:");
-      const favTag = favTagInput || null;
-      try {
-          const response = await axios.post(
-              `${import.meta.env.VITE_BACKEND_API_URL}/api/users/favorites/`,
-              { name: favName, address: address, latitude: lat, longitude: lng, tag: favTag },
-              { headers: { 'Authorization': `Token ${token}` } }
-          );
-          if (response.status === 201) {
-              toast.success(`'${favName}' added to favorites!`);
-              if(mapRef.current) mapRef.current.closePopup();
-          } else {
-              toast.error("Failed to save favorite. Unexpected response.");
-          }
-      } catch (error: any) {
-          console.error("Error saving favorite from marker:", error);
-          const errorMsg = error.response?.data?.detail ||
-                          error.response?.data?.non_field_errors?.[0] ||
-                          error.response?.data?.latitude?.[0] ||
-                          error.response?.data?.longitude?.[0] ||
-                          "Failed to save favorite.";
-          toast.error(`Error: ${errorMsg}`);
-      }
-  };
+    } catch (error: any) {
+      console.error("Error saving favorite from modal:", error);
+      const errorMsg = error.response?.data?.detail ||
+        error.response?.data?.non_field_errors?.[0] ||
+        error.response?.data?.latitude?.[0] ||
+        error.response?.data?.longitude?.[0] ||
+        "Failed to save favorite.";
+      toast.error(`Error: ${errorMsg}`);
+    } finally {
+      setFavoriteToSave(null);
+    }
+  };  
 
   // --- Rota ve Bilgilerini Temizleme Fonksiyonu --- 
-  const clearRoute = useCallback(() => {
-    console.log('[clearRoute] Attempting to clear route...'); 
-    if (mapRef.current && prevRouteLayerRef.current) {
-      console.log('[clearRoute] Map and previous route layer ref exist.'); 
-      if (mapRef.current.hasLayer(prevRouteLayerRef.current)) {
-        console.log('[clearRoute] Map has the layer, removing...'); 
-        try { 
-          mapRef.current.removeLayer(prevRouteLayerRef.current);
-          console.log('[clearRoute] Layer removed successfully from map.'); 
-        } catch (e) {
-           console.error('[clearRoute] Error removing layer:', e); 
-        }
+  const clearRoute = () => {
+    // Clear all existing route layers
+    if (routeLayerRef.current && mapRef.current) {
+      if (routeLayerRef.current instanceof L.LayerGroup) {
+        routeLayerRef.current.eachLayer(layer => {
+          if (mapRef.current) mapRef.current.removeLayer(layer);
+        });
       } else {
-          console.log('[clearRoute] Map does NOT have the layer according to hasLayer().'); 
+        mapRef.current.removeLayer(routeLayerRef.current);
+      }
+      routeLayerRef.current = null;
+    }
+    
+    // Also clear the previous route layer if it exists
+    if (prevRouteLayerRef.current && mapRef.current) {
+      if (prevRouteLayerRef.current instanceof L.LayerGroup) {
+        prevRouteLayerRef.current.eachLayer(layer => {
+          if (mapRef.current) mapRef.current.removeLayer(layer);
+        });
+      } else {
+        mapRef.current.removeLayer(prevRouteLayerRef.current);
       }
       prevRouteLayerRef.current = null;
-      console.log('[clearRoute] Previous route layer ref set to null.'); 
     }
-    // Rota bilgisini temizle
-    setRouteInfo(null); 
-    console.log('[clearRoute] Route info state cleared.'); 
-  }, [mapRef, prevRouteLayerRef]); // setRouteInfo bağımlılıklara eklendi mi? React kendi çözer
+    
+    // Reset route info state
+    setRouteInfo(null);
+    setTransitInfo(null);
+    setShowTransitInfo(false);
+  };
   // -----------------------------------------------
 
   const addMarker = async (lat: number, lng: number, isSource: boolean, address?: string) => {
@@ -788,66 +875,151 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   }, [source, destination, mapRef, transportMode, departureTime]);
 
   const getRoute = async (start: Coordinate, end: Coordinate) => {
-      console.log(`[getRoute] Fetching route from ${start.lat},${start.lng} to ${end.lat},${end.lng} via ${transportMode}`);
-      setLoadingRoute(true); 
-      clearRoute(); // Rota ve bilgileri temizle
+    if (!mapRef.current) {
+      console.error('[getRoute] Map not initialized');
+      return;
+    }
+    setLoadingRoute(true);
+    
+    // Always clear previous routes before creating a new one
+    clearRoute();
+    
+    // Construct the query URL
+    const apiUrl = `${import.meta.env.VITE_BACKEND_API_URL}/api/route/directions/?origin=${start.lat},${start.lng}&destination=${end.lat},${end.lng}&mode=${transportMode}&departure_time=${encodeURIComponent(departureTime)}`;
+    
+    try {
       const token = localStorage.getItem('token');
-      // ... (token/map kontrolü)
-      
-      try {
-          const requestData: any = { start, end, transport_mode: transportMode }; // Başlangıç modu gönderilir
-          const endpoint = `${import.meta.env.VITE_BACKEND_API_URL}/api/directions/route/`;
+      const requestData = { start, end, transport_mode: transportMode }; 
+      const endpoint = `${import.meta.env.VITE_BACKEND_API_URL}/api/directions/route/`;
 
-          const response = await axios.post<RouteResponse>(
-              endpoint,
-              requestData,
-              { headers: { 'Authorization': `Token ${token}` } }
-          );
+      console.log('[getRoute] Sending request with data:', requestData);
 
-          const routeData = response.data.routes?.[0]; 
-          if (routeData?.geometry && mapRef.current) { 
-              console.log('[getRoute] Route data received:', routeData);
-              // Yeni rota katmanını çiz
-              const newRouteLayer = L.geoJSON(routeData.geometry, {
-                  style: { color: transportMode === 'transit' ? '#673AB7' : '#4285F4', weight: 5 }
-              }).addTo(mapRef.current);
-              prevRouteLayerRef.current = newRouteLayer;
-              console.log('[getRoute] Previous route layer ref updated.');
-              
-              // Rota bilgilerini state'e kaydet
-              setRouteInfo({
-                  distance: routeData.distance ?? null,
-                  durations: routeData.durations_by_mode || {} // Boş gelirse {} ata
-              });
-              console.log('[getRoute] Route info state updated.');
+      const response = await axios.post<RouteResponse>(
+        endpoint,
+        requestData,
+        { headers: { 'Authorization': `Token ${token}` } }
+      );
 
-              // Haritayı rotaya sığdır
-              const bounds = newRouteLayer.getBounds();
-              mapRef.current.fitBounds(bounds.pad(0.1), { maxZoom: 16 }); 
+      console.log('[getRoute] Received response:', response.data);
 
-          } else {
-              console.warn('[getRoute] No route geometry found in response.');
-              clearRoute(); // Rota yoksa temizle
+      const routeData = response.data.routes?.[0]; 
+      console.log('[getRoute] Route data:', routeData);
+
+      if (routeData?.geometry && mapRef.current) { 
+        // Create outline layer for better visibility
+        const routeOutline = L.geoJSON(routeData.geometry, {
+          style: {
+            color: '#ffffff',
+            weight: 5,
+            opacity: 0.4,
+            lineJoin: 'round',
+            lineCap: 'round'
           }
-          // ... (Transit info - bu kısım A* ile uyumsuz olabilir, kontrol edilmeli)
-          if (transportMode === 'transit') { 
-              // Transit verisi backend'den geliyorsa gösterilebilir
-              // setTransitInfo(response.data.transit_info);
-              // setShowTransitInfo(true);
-              console.warn("Transit mode display not fully implemented with A* routing.")
-          } else {
-              setShowTransitInfo(false);
-              setTransitInfo(null);
+        }).addTo(mapRef.current);
+        
+        // Create main route layer with mode-specific styling
+        const newRouteLayer = L.geoJSON(routeData.geometry, {
+          style: {
+            color: transportMode === 'transit' ? '#673AB7' : 
+                   transportMode === 'walking' ? '#34A853' :
+                   transportMode === 'cycling' ? '#EA4335' : '#4285F4',
+            weight: 3,
+            opacity: 0.8,
+            lineJoin: 'round',
+            lineCap: 'round',
+            dashArray: transportMode === 'transit' ? '5, 5' : undefined
           }
-      } catch (error: any) {
-          console.error('Error getting route:', error.response?.data || error.message); 
-          clearRoute(); // Hata durumunda temizle
-          toast.error(error.response?.data?.error || 'Failed to get directions');
-          setShowTransitInfo(false);
-          setTransitInfo(null);
-      } finally {
-         setLoadingRoute(false); 
+        }).addTo(mapRef.current);
+        
+        // Group both layers together
+        const routeLayerGroup = L.layerGroup([routeOutline, newRouteLayer]);
+        prevRouteLayerRef.current = routeLayerGroup;
+
+        // Rota bilgilerini state'e kaydet
+        const routeInfo = {
+          distance: routeData.distance ?? null,
+          durations: routeData.durations_by_mode || {}
+        };
+        console.log('[getRoute] Setting route info:', routeInfo);
+        setRouteInfo(routeInfo);
+
+        // Navigasyon adımlarını hazırla ve state'e kaydet
+        if (routeData.steps && Array.isArray(routeData.steps) && routeData.steps.length > 0) {
+          console.log('[getRoute] Processing navigation steps:', routeData.steps);
+          
+          const navigationSteps = routeData.steps.map(step => {
+            console.log('[getRoute] Processing step:', step);
+            return {
+              instruction: step.instruction || 'Continue straight',
+              distance: step.distance || 0,
+              duration: step.duration || 0,
+              maneuver: step.maneuver || 'straight',
+              bearing: 0
+            };
+          });
+
+          // Son adım olarak varış noktasını ekle
+          navigationSteps.push({
+            instruction: 'You have arrived at your destination',
+            distance: 0,
+            duration: 0,
+            maneuver: 'arrive' as const,
+            bearing: 0
+          });
+
+          console.log('[getRoute] Final navigation steps:', navigationSteps);
+          
+          const newNavState = {
+            isActive: false,
+            steps: navigationSteps,
+            currentStep: 0,
+            remainingDistance: routeData.distance || 0,
+            remainingDuration: routeData.durations_by_mode[transportMode] || 0,
+            isRerouting: false
+          };
+          console.log('[getRoute] Setting navigation state:', newNavState);
+          
+          setNavigation(newNavState);
+          // setShowNavigationUI(true); // Bu satırı kaldırdık
+        } else {
+          console.warn('[getRoute] Invalid or empty steps:', routeData.steps);
+          toast.error('No route steps available');
+        }
+
+        // Haritayı rotaya sığdır
+        const bounds = newRouteLayer.getBounds();
+        mapRef.current.fitBounds(bounds.pad(0.1), { maxZoom: 16 }); 
+      } else {
+        console.warn('[getRoute] Missing route data:', { 
+          hasGeometry: !!routeData?.geometry, 
+          hasMap: !!mapRef.current 
+        });
+        toast.error('Could not display route on map');
       }
+    } catch (error: unknown) {
+      const err = error as Error | AxiosError;
+      console.error('[getRoute] Error:', err);
+      if (axios.isAxiosError(err)) {
+        console.error('[getRoute] Response data:', err.response?.data);
+      }
+      clearRoute();
+      toast.error('Failed to get directions');
+      setShowTransitInfo(false);
+      setTransitInfo(null);
+      
+      // Navigasyon state'ini sıfırla
+      setNavigation({
+        isActive: false,
+        steps: [],
+        currentStep: 0,
+        remainingDistance: 0,
+        remainingDuration: 0,
+        isRerouting: false
+      });
+      setShowNavigationUI(false);
+    } finally {
+      setLoadingRoute(false); 
+    }
   };
 
   // Handle transport mode change
@@ -943,7 +1115,8 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         let popupContent = `<div><strong>${title}</strong>`;
         const address = point.address || '';
         if (address) popupContent += `<p>${address}</p>`;
-        // Add other relevant properties to popup if needed
+        if (point.phone) popupContent += `<p>Tel: <a href="tel:${point.phone.replace(/\s+/g, '')}" style="color: #4285F4; text-decoration: none;">${point.phone}</a></p>`;
+        if (point.distance) popupContent += `<p>Mesafe: ${point.distance.toFixed(2)} km</p>`;
         
         // --- Rota Oluştur Butonu Eklendi (WiFi/Bisiklet için) --- 
         popupContent += `<div><button 
@@ -1104,6 +1277,156 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   };
   // -----------------------------------------
 
+  const fetchTaxiStations = async () => {
+    try {
+      if (!map) return;
+      
+      // Eğer konum seçilmemişse uyarı göster
+      if (!source) {
+        setIsToastError(true);
+        toast.error('Please select a location first');
+        setTimeout(() => setIsToastError(false), 1000);
+        return;
+      }
+      
+      // Yükleme başladı
+      setIsLoadingTaxis(true);
+      
+      // Kullanıcının konumunu kullanarak API'ye istek at
+      const response = await axios.get(
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/taxi-stations/`,
+        {
+          params: {
+            location: `${source.lat},${source.lng}`,
+            radius: 5000
+          }
+        }
+      );
+
+      // Yanıtı kontrol et
+      if (!response.data || response.data.error) {
+        toast.error('Could not fetch taxi stations: ' + (response.data?.error || 'Unknown error'));
+        setIsLoadingTaxis(false);
+        return;
+      }
+
+      // Backend'den gelen verileri sakla
+      setTaxiStations(response.data);
+      console.log('Taxi stations:', response.data);
+
+      // PointOfInterest listesine çevirerek haritada gösterebiliriz
+      const taxiPOIs: PointOfInterest[] = response.data.map((station: any) => ({
+        id: Math.random(), // Geçici ID
+        name: station.name,
+        address: '', // Bu bilgi yok
+        phone: station.phoneNumber || 'No phone information',
+        lat: station.location.lat,
+        lng: station.location.lng,
+        extra_info: `Rating: ${station.rating || 'N/A'}`
+      }));
+
+      // Taksi marker'larını temizle
+      clearPoiMarkers();
+      
+      // Taksi POIs'leri ekle
+      addPoiMarkers(taxiPOIs, taxiIcon as L.Icon | L.DivIcon);
+      
+      // Yükleme bitti
+      setIsLoadingTaxis(false);
+
+    } catch (error) {
+      console.error('Error fetching taxi stations:', error);
+      toast.error('Error fetching taxi stations');
+      setIsLoadingTaxis(false);
+    }
+  };
+
+  const startNavigation = () => {
+    if (!source || !destination) {
+      toast.error("Please select both source and destination first!");
+      return;
+    }
+
+    // Konum izlemeyi başlat
+    if ("geolocation" in navigator) {
+      const id = navigator.geolocation.watchPosition(
+        (position) => {
+          const newLocation: Coordinate = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          setUserLocation(newLocation);
+          
+          // Kullanıcının yönünü al (varsa)
+          if (position.coords.heading !== null) {
+            setUserHeading(position.coords.heading);
+          }
+
+          // Rotadan sapma kontrolünü şimdilik kaldırdık
+          // checkRouteDeviation(newLocation);
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+          toast.error("Could not get your location. Please check your GPS settings.");
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
+        }
+      );
+      setWatchId(id);
+    }
+
+    setIsNavigationMode(true);
+    setShowNavigationUI(true);
+    setNavigation(prev => ({ ...prev, isActive: true }));
+  };
+
+  const stopNavigation = () => {
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
+      setWatchId(null);
+    }
+    setIsNavigationMode(false);
+    setShowNavigationUI(false);
+    setNavigation(prev => ({ ...prev, isActive: false }));
+    setUserLocation(null);
+    setUserHeading(null);
+  };
+
+  // checkRouteDeviation fonksiyonunu şimdilik kaldıralım
+  // const checkRouteDeviation = async (currentLocation: Coordinate) => { ... }
+
+  // Kullanıcı konumunu gösteren marker'ı güncelle
+  useEffect(() => {
+    if (!mapRef.current || !userLocation) return;
+
+    // Kullanıcı konumu marker'ı
+    const userMarker = L.marker([userLocation.lat, userLocation.lng], {
+      icon: L.divIcon({
+        className: 'user-location-marker',
+        html: `<div class="user-location-dot" style="transform: rotate(${userHeading || 0}deg);">
+                <div class="dot"></div>
+                <div class="arrow"></div>
+              </div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+      })
+    }).addTo(mapRef.current);
+
+    // Haritayı kullanıcı konumuna odakla (navigasyon modunda)
+    if (isNavigationMode) {
+      mapRef.current.setView([userLocation.lat, userLocation.lng], 18);
+    }
+
+    return () => {
+      if (mapRef.current && mapRef.current.hasLayer(userMarker)) {
+        mapRef.current.removeLayer(userMarker);
+      }
+    };
+  }, [userLocation, userHeading, isNavigationMode]);
+
   return (
     <div className="map-container">
       <div className="search-container">
@@ -1148,6 +1471,15 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
             </span>
             <span>{isModeMenuOpen ? '▲' : '▼'}</span>
           </button>
+          <div className="point-of-interest-buttons">
+            <button 
+              onClick={() => source && destination && getRoute(source, destination)} 
+              className="route-button" 
+              disabled={loadingRoute || !source || !destination}
+            >
+              <FontAwesomeIcon icon={faRoute} /> {loadingRoute ? 'Calculating...' : 'Get Directions'}
+            </button>
+        </div>
         </div>
 
         {isModeMenuOpen && (
@@ -1170,55 +1502,6 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
           </div>
         )}
         
-        <div className="point-of-interest-buttons">
-          <button 
-            onClick={() => source && destination && getRoute(source, destination)} 
-            className="route-button" 
-            disabled={loadingRoute || !source || !destination} // Yüklenirken veya nokta yokken disable
-          >
-            {loadingRoute ? 'Calculating...' : 'Get Directions'}
-          </button>
-        </div>
-        {/* Rota Bilgisi Gösterimi (Güncellendi) */} 
-        {routeInfo && (
-          <div className="route-info">
-            {/* Seçili modun süresini göster */} 
-            {routeInfo.durations[transportMode] !== null && (
-                 <span title={`~${Math.round(routeInfo.durations[transportMode]!)} seconds`}> 
-                     🕒 {formatRouteDuration(routeInfo.durations[transportMode])} 
-                 </span>
-            )}
-            {/* Mesafeyi göster */} 
-            {routeInfo.distance !== null && (
-                 <span style={{ marginLeft: '10px' }}> 
-                     📏 {formatRouteDistance(routeInfo.distance)}
-                 </span>
-            )}
-            {/* Varış Zamanını Hesapla ve Göster */} 
-            {routeInfo.durations[transportMode] !== null && departureTime && (
-              (() => {
-                try {
-                  const departureDate = new Date(departureTime); // datetime-local değerini Date'e çevir
-                  departureDate.setSeconds(departureDate.getSeconds() + routeInfo.durations[transportMode]!); // Süreyi ekle (saniye)
-                  const arrivalTime = departureDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }); // Sa:Dk formatında göster
-                  return (
-                    <span style={{ marginLeft: '10px' }}> 
-                        🏁 Arr: {arrivalTime}
-                    </span>
-                  );
-                } catch (e) {
-                  console.error("Error calculating arrival time:", e);
-                  return null; // Hata olursa gösterme
-                }
-              })()
-            )}
-          </div>
-        )} 
-        <div className="point-of-interest-buttons">
-          <button onClick={fetchPharmacies} className="poi-button">
-            <img src={pharmacyIconUrl} alt="Pharmacy" width="20" height="20"/> Duty Pharmacies
-          </button>
-        </div>
         
         <TransitInfoPanel 
           transitInfo={transitInfo} 
@@ -1226,6 +1509,62 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         />
       </div>
       
+      {/* Floating bottom navigation section */}
+      {routeInfo && (
+        <div className="bottom-navigation-section">
+          <div className="route-info">
+            {routeInfo.durations[transportMode] !== null && (
+              <span title={`~${Math.round(routeInfo.durations[transportMode]!)} seconds`}> 
+                🕒 {formatRouteDuration(routeInfo.durations[transportMode])} 
+              </span>
+            )}
+            {routeInfo.distance !== null && (
+              <span> 
+                📏 {formatRouteDistance(routeInfo.distance)}
+              </span>
+            )}
+            {routeInfo.durations[transportMode] !== null && departureTime && (
+              <span> 
+                🏁 Arr: {(() => {
+                  try {
+                    const departureDate = new Date(departureTime);
+                    departureDate.setSeconds(departureDate.getSeconds() + routeInfo.durations[transportMode]!);
+                    return departureDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+                  } catch (e) {
+                    console.error("Error calculating arrival time:", e);
+                    return '--:--';
+                  }
+                })()}
+              </span>
+            )}
+          </div>
+          {!isNavigationMode && (
+            <button onClick={startNavigation} className="navigation-button">
+              <FontAwesomeIcon icon={faLocationArrow} /> Start Navigation
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Left-side menu */}
+      <LeftSideMenu
+        isLoadingTaxis={isLoadingTaxis}
+        showWifi={showWifi}
+        loadingWifi={loadingWifi}
+        showBicycle={showBicycle}
+        loadingBicycle={loadingBicycle}
+        loadingPharmacies={loadingPharmacies}
+        showPharmacies={showPharmacies}
+        onTaxiClick={fetchTaxiStations}
+        onWifiClick={toggleWifiLayer}
+        onBicycleClick={toggleBicycleLayer}
+        onPharmacyClick={fetchPharmacies}
+        isTransportExpanded={isModeMenuOpen}
+      />
+
+      <div id="map" style={{ height: '100%', width: '100%' }} />
+
+      {/* Bottom right controls */}
       <div className="bottom-right-controls">
         <HamburgerMenu 
           isLoggedIn={isLoggedIn} 
@@ -1234,24 +1573,152 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
           onToggle={() => setOpenControl(openControl === 'menu' ? null : 'menu')}
           openDirection="up"
         />
-        <div className="vertical-controls"> 
-          {map && <MapStylesControl 
-                    map={map} 
-                    isOpen={openControl === 'styles'} 
-                    onToggle={() => setOpenControl(openControl === 'styles' ? null : 'styles')} 
-                  />}
-          <div className="layer-toggle-buttons">
-            <button onClick={toggleWifiLayer} className={`poi-toggle-button layer-toggle-btn ${showWifi ? 'active' : ''} ${loadingWifi ? 'loading' : ''}`} title="Toggle WiFi Hotspots" disabled={loadingWifi}>
-              <img src={wifiIconUrl} alt="WiFi" width="20" height="20"/>
-            </button>
-            <button onClick={toggleBicycleLayer} className={`poi-toggle-button layer-toggle-btn ${showBicycle ? 'active' : ''} ${loadingBicycle ? 'loading' : ''}`} title="Toggle Bicycle Stations" disabled={loadingBicycle}>
-              <img src={bicycleIconUrl} alt="Bicycle" width="20" height="20"/>
-            </button>
+        {map && <MapStylesControl 
+          map={map} 
+          isOpen={openControl === 'styles'} 
+          onToggle={() => setOpenControl(openControl === 'styles' ? null : 'styles')} 
+        />}
+      </div>
+
+      {/* Navigasyon UI */}
+      {showNavigationUI && (
+        <div className="navigation-panel">
+          <div className="navigation-header" style={{
+            borderBottom: '1px solid #eee',
+            paddingBottom: '10px',
+            marginBottom: '10px'
+          }}>
+            {/* Aktif adım - büyük gösterim */}
+            <div className="current-step" style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: '15px'
+            }}>
+              <div className="maneuver-icon" style={{
+                fontSize: '24px',
+                marginRight: '15px',
+                width: '40px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#f5f5f5',
+                borderRadius: '50%'
+              }}>
+                {navigation.steps[navigation.currentStep]?.maneuver === 'turn-right' && '➡️'}
+                {navigation.steps[navigation.currentStep]?.maneuver === 'turn-left' && '⬅️'}
+                {navigation.steps[navigation.currentStep]?.maneuver === 'straight' && '⬆️'}
+                {navigation.steps[navigation.currentStep]?.maneuver === 'arrive' && '🏁'}
+              </div>
+              <div className="step-info" style={{ flex: 1 }}>
+                <div className="instruction" style={{
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  marginBottom: '5px'
+                }}>
+                  {navigation.steps[navigation.currentStep]?.instruction || 'Calculating route...'}
+                </div>
+                <div className="step-distance" style={{
+                  fontSize: '14px',
+                  color: '#666'
+                }}>
+                  {formatRouteDistance(navigation.steps[navigation.currentStep]?.distance)}
+                </div>
+              </div>
+            </div>
+
+            {/* Özet bilgiler ve Sonlandır butonu */}
+            <div className="navigation-summary" style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div className="remaining-info" style={{
+                fontSize: '14px',
+                color: '#666'
+              }}>
+                <span>🕒 {formatRouteDuration(navigation.remainingDuration)}</span>
+                <span style={{ marginLeft: '10px' }}>
+                  📏 {formatRouteDistance(navigation.remainingDistance)}
+                </span>
+              </div>
+              <button 
+                onClick={stopNavigation} 
+                style={{
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                End Navigation
+              </button>
+            </div>
+          </div>
+          
+          {/* Adım adım talimatlar listesi */}
+          <div className="navigation-steps" style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}>
+            {navigation.steps.map((step, index) => (
+              <div 
+                key={index} 
+                className={index === navigation.currentStep ? 'active-step' : 'step-item'}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '10px',
+                  backgroundColor: index === navigation.currentStep ? '#f0f0f0' : 'transparent',
+                  borderRadius: '4px',
+                  transition: 'background-color 0.3s'
+                }}
+              >
+                <div style={{
+                  width: '30px',
+                  height: '30px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: index === navigation.currentStep ? '#4285f4' : '#f5f5f5',
+                  borderRadius: '50%',
+                  marginRight: '10px'
+                }}>
+                  {step.maneuver === 'turn-right' && '➡️'}
+                  {step.maneuver === 'turn-left' && '⬅️'}
+                  {step.maneuver === 'straight' && '⬆️'}
+                  {step.maneuver === 'arrive' && '🏁'}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    fontSize: '14px',
+                    color: index === navigation.currentStep ? '#000' : '#666'
+                  }}>
+                    {step.instruction}
+                  </div>
+                  <div style={{
+                    fontSize: '12px',
+                    color: '#888',
+                    marginTop: '2px'
+                  }}>
+                    {formatRouteDistance(step.distance)}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
-      
-      <div id="map" style={{ height: '100%', width: '100%' }} />
+      )}
+
+      <SaveFavoriteModal
+        isOpen={showFavoriteModal}
+        onClose={() => setShowFavoriteModal(false)}
+        onSave={handleSaveFavorite}
+        defaultName={favoriteToSave?.address.split(',')[0] || 'Favorite'}
+      />
     </div>
   );
 };

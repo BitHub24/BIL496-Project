@@ -7,17 +7,18 @@
 }
 
 .toggle-button {
-  width: 40px;
-  height: 40px;
-  background-color: white;
-  border: none;
-  border-radius: 4px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.2s;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: white !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
 }
 
 .toggle-button:hover {
@@ -26,6 +27,8 @@
 
 .toggle-button svg {
   fill: #333;
+  width: 24px;
+  height: 24px;
 }
 
 .styles-panel {

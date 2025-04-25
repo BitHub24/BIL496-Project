@@ -122,7 +122,7 @@ class UserRoadPreferenceViewSet(viewsets.ModelViewSet):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='preferred')
     def preferred(self, request):
         """Get user's preferred roads."""
         preferences = UserRoadPreference.objects.filter(
@@ -132,7 +132,7 @@ class UserRoadPreferenceViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(preferences, many=True)
         return Response(serializer.data)
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='avoided')
     def avoided(self, request):
         """Get user's avoided roads."""
         preferences = UserRoadPreference.objects.filter(
@@ -171,7 +171,7 @@ class RoutePreferenceProfileViewSet(viewsets.ModelViewSet):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='default')
     def default(self, request):
         """Get user's default profile."""
         profile = RoutePreferenceProfile.objects.filter(
@@ -191,7 +191,7 @@ class RoutePreferenceProfileViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(profile)
         return Response(serializer.data)
     
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], url_path='set-default')
     def set_default(self, request, pk=None):
         """Set profile as default."""
         profile = self.get_object()

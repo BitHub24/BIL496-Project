@@ -14,6 +14,7 @@ import json
 import logging
 import os # Dosya yolu için eklendi
 import time # Zaman ölçümü için eklendi
+import math # Matematik işlemleri için eklendi
 
 # Gerekli olabilecek yeni importlar (Placeholder)
 import networkx as nx # networkx import edildi
@@ -259,25 +260,69 @@ class DirectionsView(APIView):
             
             # Toplam mesafeyi hesapla (geometriyi oluşturan rotaya göre)
             total_distance = 0
-            for u, v in zip(route_nodes[:-1], route_nodes[1:]):
+            route_steps = []
+            prev_bearing = None
+
+            for i in range(len(route_nodes) - 1):
+                u = route_nodes[i]
+                v = route_nodes[i + 1]
                 edge_data = graph.get_edge_data(u, v, key=0)
+                
                 if edge_data:
-                    total_distance += edge_data.get('length', 0)
+                    # Mesafe hesapla
+                    step_distance = edge_data.get('length', 0)
+                    total_distance += step_distance
+
+                    # Yön hesapla (bearing)
+                    u_lat, u_lon = graph.nodes[u]['y'], graph.nodes[u]['x']
+                    v_lat, v_lon = graph.nodes[v]['y'], graph.nodes[v]['x']
+                    
+                    # İki nokta arasındaki açıyı hesapla
+                    y = math.sin(v_lon - u_lon) * math.cos(v_lat)
+                    x = math.cos(u_lat) * math.sin(v_lat) - math.sin(u_lat) * math.cos(v_lat) * math.cos(v_lon - u_lon)
+                    bearing = math.degrees(math.atan2(y, x))
+                    bearing = (bearing + 360) % 360  # 0-360 arasına normalize et
+
+                    # Dönüş yönünü belirle
+                    if prev_bearing is not None:
+                        angle_diff = ((bearing - prev_bearing + 180) % 360) - 180
+                        if angle_diff < -30:  # Changed from > to <
+                            maneuver = 'turn-right'
+                            instruction = f"Turn right and continue for {int(step_distance)} meters"
+                        elif angle_diff > 30:  # Changed from < to >
+                            maneuver = 'turn-left'
+                            instruction = f"Turn left and continue for {int(step_distance)} meters"
+                        else:
+                            maneuver = 'straight'
+                            instruction = f"Continue straight for {int(step_distance)} meters"
+                    else:
+                        maneuver = 'straight'
+                        instruction = f"Head straight for {int(step_distance)} meters"
+
+                    # Adımı ekle
+                    route_steps.append({
+                        'instruction': instruction,
+                        'distance': step_distance,
+                        'duration': calculate_travel_time(u, v, edge_data, mode=initial_transport_mode),
+                        'maneuver': maneuver
+                    })
+
+                    prev_bearing = bearing
                 else:
                     logger.warning(f"Edge data not found between nodes {u} and {v} for distance calculation!")
             
             logger.info(f"Calculated distance for initial mode ({initial_transport_mode}): {total_distance:.2f}m")
+            logger.info(f"Generated {len(route_steps)} route steps")
 
             # Yanıtı oluştur (tüm süreleri içeren)
             route_response = {
                 "routes": [{
                     "geometry": route_geometry,
                     "legs": [], # Legs şimdilik boş
-                    # Ana süre/mesafe başlangıç moduna ait olsun
                     "duration": all_durations.get(initial_transport_mode), 
-                    "distance": total_distance, 
-                    # Tüm modların sürelerini içeren yeni bir alan ekle
-                    "durations_by_mode": all_durations 
+                    "distance": total_distance,
+                    "durations_by_mode": all_durations,
+                    "steps": route_steps  # Adımları ekle
                 }]
             }
             # ---------------------------------------------------

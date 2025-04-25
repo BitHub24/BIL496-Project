@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import './SettingsPage.css';
-import HamburgerMenu from './HamburgerMenu';
 
 interface RoadSegment {
   id: number;
@@ -65,6 +65,28 @@ interface SettingsPageProps {
   onLogout: () => void;
 }
 
+// Tag emojileri için map
+const TAG_EMOJIS: { [key: string]: string } = {
+  home: '🏠',
+  work: '💼',
+  school: '🎓',
+  favorite: '⭐',
+  shopping: '🛍️',
+  restaurant: '🍽️',
+  gym: '💪',
+  other: '📍'
+};
+
+// İlk harfi büyük yapma fonksiyonu
+const capitalizeFirstLetter = (str: string): string => {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
+// Tag için emoji alma fonksiyonu
+const getTagEmoji = (tag: string): string => {
+  return TAG_EMOJIS[tag.toLowerCase()] || TAG_EMOJIS.other;
+};
+
 const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => {
   // User profile state (address kaldırıldı)
   const [username, setUsername] = useState<string>('');
@@ -99,62 +121,56 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
 
   // Active tab state
   const [activeTab, setActiveTab] = useState<string>('profile');
-  const [isHamburgerOpen, setIsHamburgerOpen] = useState(false);
 
   // Fetch user data (address state update kaldırıldı)
   const fetchUserProfile = useCallback(async () => {
-    console.log('[fetchUserProfile] Function called.'); // Log 1: Fonksiyon çağrıldı mı?
+    console.log('[fetchUserProfile] Function called.');
     const token = localStorage.getItem("token");
-    console.log('[fetchUserProfile] Token from localStorage:', token); // Log 2: Token var mı?
+    console.log('[fetchUserProfile] Token from localStorage:', token);
     
     if (!token) {
         console.warn('[fetchUserProfile] No token found. Aborting fetch.');
         toast.error('Authentication required. Please log in.');
-        // İsteğe bağlı: Zaten yüklenmiş olabilecek eski verileri temizle
         setUsername('');
         setEmail('');
         setFirstName('');
         setLastName('');
         setPhoneNumber('');
-        return; // Token yoksa devam etme
+        return;
     }
 
     try {
-      console.log('[fetchUserProfile] Attempting to fetch profile data...'); // Log 3: API isteği yapılıyor mu?
+      console.log('[fetchUserProfile] Attempting to fetch profile data...');
       const response = await axios.get(
-        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/users/profile/`,
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/users/profile/`,
         {
           headers: { Authorization: `Token ${token}` },
         }
       );
-      console.log('[API Response] User Data:', response.data); // Bu log zaten vardı
-      console.log('[API Response] Status Code:', response.status); // Log 4: Yanıt kodu
+      console.log('[API Response] User Data:', response.data);
+      console.log('[API Response] Status Code:', response.status);
       
       if (response.data) {
         const userData = response.data;
         setUsername(userData.username);
         setEmail(userData.email);
-        setFirstName(userData.first_name || ''); // Boş gelirse '' ata
-        setLastName(userData.last_name || '');   // Boş gelirse '' ata
-        setPhoneNumber(userData.user_profile?.phone_number || ''); // Opsiyonel zincirleme ve boş kontrolü
+        setFirstName(userData.first_name || '');
+        setLastName(userData.last_name || '');
+        setPhoneNumber(userData.user_profile?.phone_number || '');
         console.log('[State Update] Profile data set.');
       } else {
         console.error('API response format is incorrect or missing data');
         toast.error('Failed to parse user profile data');
       }
     } catch (error: any) {
-      console.error('Error fetching user data:', error); // Bu log zaten vardı
-      // Daha detaylı hata logları
+      console.error('Error fetching user data:', error);
       if (error.response) {
-        // İstek yapıldı ve sunucu 2xx dışında bir durum koduyla yanıt verdi
         console.error('[fetchUserProfile Error] Response Status:', error.response.status);
         console.error('[fetchUserProfile Error] Response Data:', error.response.data);
         console.error('[fetchUserProfile Error] Response Headers:', error.response.headers);
       } else if (error.request) {
-        // İstek yapıldı ancak yanıt alınamadı
         console.error('[fetchUserProfile Error] No response received:', error.request);
       } else {
-        // İsteği ayarlarken bir şeyler oldu
         console.error('[fetchUserProfile Error] Request setup error:', error.message);
       }
       toast.error('Failed to load user profile');
@@ -166,7 +182,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
     const token = localStorage.getItem("token");
     try {
       const preferredResponse = await axios.get(
-        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/preferences/preferred/`,
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/preferences/preferred/`,
         {
           headers: { Authorization: `Token ${token}` },
         }
@@ -174,7 +190,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
       setPreferredRoads(preferredResponse.data as RoadPreference[]);
 
       const avoidedResponse = await axios.get(
-        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/preferences/avoided/`,
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/preferences/avoided/`,
         {
           headers: { Authorization: `Token ${token}` },
         }
@@ -191,14 +207,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
     const token = localStorage.getItem("token");
     try {
       const response = await axios.get(
-        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/profiles/`,
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/profiles/`,
         { headers: { Authorization: `Token ${token}` } }
       );
       setProfiles(response.data as PreferenceProfile[]);
 
       // Get default profile
       const defaultResponse = await axios.get(
-        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/profiles/default/`,
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/profiles/default/`,
         { headers: { Authorization: `Token ${token}` } }
       );
       const defaultProfile = defaultResponse.data as PreferenceProfile | null;
@@ -213,12 +229,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
     }
   }, []);
 
-  // Fetch saved locations (URL ve state güncellendi -> FavoriteLocation)
+  // Fetch saved locations
   const fetchFavorites = useCallback(async () => {
     const token = localStorage.getItem("token");
     try {
       const response = await axios.get(
-        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/users/favorites/`,
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/users/favorites/`,
         { headers: { Authorization: `Token ${token}` } }
       );
       setFavoriteLocations(response.data as FavoriteLocation[]);
@@ -235,7 +251,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
     fetchPreferences();
     fetchProfiles();
     fetchFavorites();
-  }, [fetchUserProfile, fetchPreferences, fetchProfiles, fetchFavorites]); // useCallback'ten dönen fonksiyonları ekle
+  }, [fetchUserProfile, fetchPreferences, fetchProfiles, fetchFavorites]);
 
   // Update password
   const handleUpdatePassword = async (e: React.FormEvent) => {
@@ -251,12 +267,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
     const headers = { Authorization: `Token ${token}` };
 
     try {
-      await axios.post(`${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/users/change-password/`, 
+      await axios.post(`${import.meta.env.VITE_BACKEND_API_URL}/api/users/change-password/`, 
         {
           current_password: currentPassword,
           new_password: newPassword
         },
-        { headers } // Pass headers
+        { headers }
       );
       
       toast.success('Password updated successfully');
@@ -275,18 +291,28 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
     setSearchQuery(query);
     if (query.length > 2) {
       try {
+        console.log('Searching with query:', query);
         const response = await axios.get(
-          `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/road-segments/search/`,
+          `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/road-segments/search/`,
           {
-            params: { query },
+            params: { q: query },
             headers: { Authorization: `Token ${localStorage.getItem("token")}` },
           }
         );
-        setSearchResults(response.data as RoadSegment[]);
+        console.log('Search response:', response.data);
+        if (Array.isArray(response.data)) {
+          setSearchResults(response.data);
+        } else {
+          console.error('Unexpected response format:', response.data);
+          setSearchResults([]);
+        }
       } catch (error) {
         console.error('Error searching roads:', error);
         toast.error('Failed to search for roads');
+        setSearchResults([]);
       }
+    } else {
+      setSearchResults([]);
     }
   };
 
@@ -297,21 +323,33 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
       return;
     }
     try {
+      console.log('Search button clicked with query:', searchQuery);
       const response = await axios.get(
-        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/road-segments/search/`,
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/road-segments/search/`,
         {
-          params: { query: searchQuery }, // Use searchQuery directly
+          params: { q: searchQuery },
           headers: { Authorization: `Token ${localStorage.getItem("token")}` },
         }
       );
-      setSearchResults(response.data as RoadSegment[]);
+      console.log('Search button response:', response.data);
+      if (Array.isArray(response.data)) {
+        setSearchResults(response.data);
+        if (response.data.length === 0) {
+          toast.info('No results found');
+        }
+      } else {
+        console.error('Unexpected response format:', response.data);
+        setSearchResults([]);
+        toast.error('API response is not in expected format');
+      }
     } catch (error) {
       console.error('Error searching roads:', error);
       toast.error('Failed to search for roads');
+      setSearchResults([]);
     }
   };
 
-  // Add road preference - Ensure type is 'preferred' | 'avoided'
+  // Add road preference
   const handleAddPreference = async (roadSegmentId: number, type: "preferred" | "avoided") => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -319,13 +357,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
 
     try {
       const response = await axios.post(
-        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/preferences/`,
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/preferences/`,
         {
           road_segment: roadSegmentId,
           preference_type: type,
           reason: preferenceReason
         },
-        { headers } // Pass headers
+        { headers }
       );
 
       // Update local state
@@ -353,8 +391,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
     const headers = { Authorization: `Token ${token}` };
     try {
       await axios.delete(
-        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/preferences/${preferenceId}/`,
-        { headers } // Pass headers
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/preferences/${preferenceId}/`,
+        { headers }
       );
 
       // Update local state
@@ -378,15 +416,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
 
     try {
       const response = await axios.post(
-        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/profiles/`,
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/profiles/`,
         {
           name: newProfileName,
           description: newProfileDescription,
           prefer_multiplier: preferMultiplier,
           avoid_multiplier: avoidMultiplier,
-          is_default: profiles.length === 0 // Make default if first profile
+          is_default: profiles.length === 0
         },
-        { headers } // Pass headers
+        { headers }
       );
 
       // Update local state
@@ -411,9 +449,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
     const headers = { Authorization: `Token ${token}` };
     try {
       const response = await axios.post(
-        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/profiles/${profileId}/set_default/`,
-        {}, // Empty data for POST often needed
-        { headers } // Pass headers
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/profiles/${profileId}/set_default/`,
+        {},
+        { headers }
       );
 
       // Update local state
@@ -444,12 +482,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
 
     try {
       const response = await axios.patch(
-        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/routing/profiles/${selectedProfile.id}/`,
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/profiles/${selectedProfile.id}/`,
         {
           prefer_multiplier: preferMultiplier,
           avoid_multiplier: avoidMultiplier
         },
-        { headers } // Pass headers
+        { headers }
       );
 
       // Update local state
@@ -474,7 +512,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
 
     try {
       await axios.delete(
-        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/users/favorites/${locationId}/`,
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/users/favorites/${locationId}/`,
         { headers }
       );
       setFavoriteLocations(favoriteLocations.filter(loc => loc.id !== locationId));
@@ -507,12 +545,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
   // Render öncesi loglama
   console.log('[Render Check] Username:', username, 'Email:', email);
 
-  // Yeni toggle fonksiyonu
-  const toggleHamburgerMenu = () => {
-    setIsHamburgerOpen(!isHamburgerOpen);
-  };
-
-  // Yeni Profil Güncelleme Fonksiyonu
+  // Handle profile update
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -530,26 +563,16 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
         },
       };
 
-      // Username ve Email update için ayrı kontrol (backend UserSerializer'a göre)
       const userData: { [key: string]: any } = {};
-      // Eğer backend username/email güncellemesine izin veriyorsa (UserSerializer'da required=False ise)
-      // userData.username = username;
-      // userData.email = email;
 
-      // Hem User hem UserProfile güncellemesi için UserDetailView'a (PUT/PATCH /api/users/user/)
       const response = await axios.patch(
-        `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/users/user/`,
-        { ...userData, user_profile: profileData.user_profile, first_name: firstName, last_name: lastName }, // User ve UserProfile verilerini birleştir
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/users/user/`,
+        { ...userData, user_profile: profileData.user_profile, first_name: firstName, last_name: lastName },
         { headers }
       );
 
       console.log('[API Response] Profile Update:', response.data);
       toast.success('Profile updated successfully!');
-
-      // State'i güncelleyebiliriz (opsiyonel, sayfa yenilemesi de işe yarar)
-      // setFirstName(response.data.first_name || '');
-      // setLastName(response.data.last_name || '');
-      // setPhoneNumber(response.data.user_profile?.phone_number || '');
 
     } catch (error: any) {
       console.error('Error updating profile:', error);
@@ -560,14 +583,24 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
 
   return (
     <div className="settings-container">
+      <div className="settings-top-left">
+        <button 
+          onClick={() => window.location.href = '/map'}
+          className="return-button"
+          title="Return to Map"
+        >
+          <FontAwesomeIcon icon="arrow-left" />
+        </button>
+      </div>
       <div className="settings-top-right">
-        <HamburgerMenu 
-          isLoggedIn={isLoggedIn} 
-          onLogout={onLogout} 
-          isOpen={isHamburgerOpen} 
-          onToggle={toggleHamburgerMenu} 
-          openDirection="down"
-        />
+        <button 
+          onClick={onLogout}
+          className="settings-logout-button"
+          title="Logout"
+        >
+          <FontAwesomeIcon icon="sign-out-alt" />
+          <span className="logout-text">Logout</span>
+        </button>
       </div>
       
       <h1>Settings</h1>
@@ -642,17 +675,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
                 />
               </div>
               
-              <div className="form-group">
-                <label htmlFor="phoneNumber">Phone Number</label>
-                <input
-                  type="tel"
-                  id="phoneNumber"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                />
-              </div>
-              
-              <button type="submit" className="save-profile-button">
+              <button type="submit" className="blue-btn">
                 Save Profile
               </button>
             </form>
@@ -694,7 +717,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
                   />
                 </div>
                 
-                <button type="submit" className="update-password-button">
+                <button type="submit" className="update-password-button blue-btn">
                   Update Password
                 </button>
               </form>
@@ -914,19 +937,46 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
                     value={newProfileName}
                     onChange={(e) => setNewProfileName(e.target.value)}
                     placeholder="Profile Name"
-                    className="profile-input"
                   />
                   <textarea
                     value={newProfileDescription}
                     onChange={(e) => setNewProfileDescription(e.target.value)}
-                    placeholder="Description (optional)"
-                    className="profile-description-input"
+                    placeholder="Profile Description (optional)"
                   />
-                  <button 
-                    onClick={handleSaveProfile}
-                    disabled={!newProfileName}
-                    className="create-button"
-                  >
+                  
+                  <div className="multiplier-control">
+                    <label>Preferred Road Multiplier:</label>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="1"
+                      step="0.05"
+                      value={preferMultiplier}
+                      onChange={(e) => setPreferMultiplier(parseFloat(e.target.value))}
+                    />
+                    <span>{preferMultiplier.toFixed(2)}x</span>
+                    <p className="multiplier-description">
+                      Lower values make preferred roads more attractive (faster).
+                    </p>
+                  </div>
+                  
+                  <div className="multiplier-control">
+                    <label>Avoided Road Multiplier:</label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      step="0.5"
+                      value={avoidMultiplier}
+                      onChange={(e) => setAvoidMultiplier(parseFloat(e.target.value))}
+                    />
+                    <span>{avoidMultiplier.toFixed(2)}x</span>
+                    <p className="multiplier-description">
+                      Higher values make avoided roads less attractive (slower).
+                    </p>
+                  </div>
+                  
+                  <button onClick={handleSaveProfile}>
                     Create Profile
                   </button>
                 </div>
@@ -948,12 +998,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
                     <div className="location-info">
                       <h3>{location.name}</h3>
                       <p className="location-address">{location.address}</p>
-                      <p className="location-tag">{location.tag || 'No tag'}</p>
+                      <p className="location-tag">
+                        {location.tag ? `${getTagEmoji(location.tag)} ${capitalizeFirstLetter(location.tag)}` : 'No tag'}
+                      </p>
                     </div>
                     <div className="location-actions">
                       <button 
                         onClick={() => {
-                          // Navigate to map with this location
                           window.location.href = `/map?lat=${location.latitude}&lng=${location.longitude}&name=${encodeURIComponent(location.name)}`;
                         }}
                         className="use-location-btn"

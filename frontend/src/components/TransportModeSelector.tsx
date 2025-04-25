@@ -14,6 +14,16 @@ const TransportModeSelector: React.FC<TransportModeSelectorProps> = ({
   selectedMode, 
   onToggle 
 }) => {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    // Add a small delay to ensure the component is mounted before showing
+    const timer = setTimeout(() => {
+      setIsVisible(true);
+    }, 50);
+    return () => clearTimeout(timer);
+  }, []);
+
   const handleModeChange = (mode: string) => {
     // If selecting transit mode, check if the API is available
     if (mode === 'transit') {
@@ -41,9 +51,9 @@ const TransportModeSelector: React.FC<TransportModeSelectorProps> = ({
 
       let apiUrl;
       if (selectedMode === "transit") {
-        apiUrl = `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/directions/transit/`;
+        apiUrl = `${import.meta.env.VITE_BACKEND_API_URL}/api/directions/transit/`;
       } else {
-        apiUrl = `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/directions/route/`;
+        apiUrl = `${import.meta.env.VITE_BACKEND_API_URL}/api/directions/route/`;
       }
 
       // Make a test request to the transit API
@@ -70,7 +80,7 @@ const TransportModeSelector: React.FC<TransportModeSelectorProps> = ({
   };
 
   return (
-    <div className="transport-mode-selector">
+    <div className={`transport-mode-selector ${isVisible ? 'visible' : ''}`}>
       <div className="mode-options">
         <button 
           className={`mode-button ${selectedMode === 'driving' ? 'active' : ''}`}

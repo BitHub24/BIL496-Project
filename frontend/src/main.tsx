@@ -4,6 +4,10 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+// Import Font Awesome configuration
+import './fontawesome';
+// Import custom route styles
+import './styles/route-styles.css';
 
 const googleClientID = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID;
 console.log('Google Client ID:', googleClientID); // Log the Google Client ID to check if it's loaded correctly

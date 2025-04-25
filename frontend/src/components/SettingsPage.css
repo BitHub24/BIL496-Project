@@ -50,8 +50,72 @@ body {
 /* Sağ Üst Hamburger */
 .settings-top-right {
   position: absolute;
-  top: 25px; /* Ayarlandı */
-  right: 25px;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  gap: 10px;
+  z-index: 10;
+}
+
+.settings-top-left {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+}
+
+.return-button,
+.settings-logout-button {
+  background: none;
+  border: none;
+  color: #333;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.return-button:hover,
+.settings-logout-button:hover {
+  background-color: #f0f0f0;
+  transform: scale(1.1);
+}
+
+.settings-logout-button {
+  color: #e74c3c;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 20px;
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 120px;
+  height: 45px;
+  justify-content: center;
+}
+
+.settings-logout-button:hover,
+.settings-logout-button:active {
+  background-color: #083c5d;
+  color: white;
+  transform: scale(1.05);
+}
+
+.logout-text {
+  font-size: 1rem;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 /* Tablar */
@@ -75,14 +139,14 @@ body {
 }
 
 .tab-button:hover {
-  color: #2d6ae5; /* Hover rengi */
-  background-color: #f8f9fa; /* Hafif hover arka planı */
+  color: #083c5d;
+  background-color: #f8f9fa;
 }
 
 .tab-button.active {
-  color: #4285F4;
-  border-bottom-color: #4285F4;
-  font-weight: 600; /* Aktif tab kalın */
+  color: #083c5d;
+  border-bottom-color: #083c5d;
+  font-weight: 600;
 }
 
 /* Bölümler */
@@ -160,17 +224,7 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* Birincil Buton (Save, Update, Search, Create) */
-.save-profile-button,
-.update-password-button,
-.search-button,
-.create-button,
-.update-button,
-.default-button {
-  background-color: #4285F4;
-  color: white;
-  border-color: #4285F4;
-}
+
 
 .save-profile-button:hover,
 .update-password-button:hover,
@@ -178,8 +232,8 @@ button:disabled {
 .create-button:hover,
 .update-button:hover,
 .default-button:hover {
-  background-color: #3367d6;
-  border-color: #3367d6;
+  background-color: #083c5d;
+  border-color: #083c5d;
 }
 
 /* İkincil/Diğer Butonlar (Remove, Delete, Use, Repeat) */
@@ -241,7 +295,81 @@ button:disabled {
 
 /* Profil Bölümü */
 .profile-form {
-  /* margin-bottom: 30px; Kaldırıldı, section yönetiyor */
+  background-color: #f8f9fa;
+  padding: 25px;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  margin: 20px 0; /* Üst ve alt margin ekledik */
+  width: 100%; /* Tam genişlik */
+  box-sizing: border-box; /* Padding'in genişliğe dahil olması için */
+}
+
+.profile-form h4 {
+  color: #333;
+  margin: 0 0 20px 0; /* Sol ve sağ margin'i kaldırdık */
+}
+
+.profile-form input[type="text"],
+.profile-form textarea {
+  width: 100%;
+  padding: 12px 15px; /* Sol ve sağ padding artırıldı */
+  margin-bottom: 20px; /* Alt margin artırıldı */
+  border: 1px solid #e0e0e0;
+  border-radius: 6px; /* Border radius artırıldı */
+  font-size: 14px;
+  box-sizing: border-box; /* Padding'in genişliğe dahil olması için */
+}
+
+.profile-form textarea {
+  min-height: 100px; /* Yükseklik artırıldı */
+  resize: vertical;
+}
+
+.profile-form .multiplier-control {
+  margin: 0 0 25px 0; /* Sol ve sağ margin'i kaldırdık, alt margin artırıldı */
+  padding: 0; /* Padding'i sıfırladık */
+}
+
+.profile-form .multiplier-control label {
+  display: block;
+  margin: 0 0 10px 0; /* Sol ve sağ margin'i kaldırdık */
+  color: #555;
+  font-weight: 500;
+}
+
+.profile-form .multiplier-control input[type="range"] {
+  width: 100%;
+  margin: 0 0 8px 0; /* Sol ve sağ margin'i kaldırdık */
+}
+
+.profile-form .multiplier-control span {
+  color: #666;
+  font-size: 14px;
+  display: block; /* Block element yaptık */
+  margin: 5px 0; /* Üst ve alt margin ekledik */
+}
+
+.profile-form .multiplier-description {
+  font-size: 12px;
+  color: #777;
+  margin: 8px 0 0 0; /* Sol ve sağ margin'i kaldırdık */
+  line-height: 1.4; /* Satır yüksekliği artırıldı */
+}
+
+.profile-form button {
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 20px;
+  cursor: pointer;
+  font-weight: 600;
+  width: 100%;
+  margin: 10px 0 0 0; /* Sol ve sağ margin'i kaldırdık */
+  transition: background-color 0.2s ease;
+}
+
+.profile-form button:hover {
+  background-color: #3367d6;
 }
 
 .password-section {
@@ -505,10 +633,6 @@ button:disabled {
   border-radius: 6px;
   margin-top: 25px;
   border: 1px solid #e5e5e5;
-}
-
-.profile-form {
-  /* ... */
 }
 
 /* Kayıtlı Konumlar ve Seyahat Geçmişi */

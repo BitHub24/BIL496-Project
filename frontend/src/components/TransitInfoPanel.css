@@ -1,11 +1,25 @@
 .transit-info-panel {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
   background-color: white;
   border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
   padding: 15px;
-  margin-top: 10px;
-  max-height: 300px;
-  overflow-y: auto;
+  width: 90%;
+  max-width: 500px;
+  z-index: 1000;
+  opacity: 0;
+  transform: translate(-50%, 20px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.transit-info-panel.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
 }
 
 .transit-info-panel h3 {
@@ -22,9 +36,96 @@
 }
 
 .transit-section {
-  padding: 10px;
-  border-radius: 6px;
+  margin-bottom: 15px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #eee;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transit-section.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.transit-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.transit-section-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 10px;
+}
+
+.transit-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background-color: #f5f5f5;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.transit-section:hover .transit-icon {
+  transform: scale(1.1);
+  background-color: #e3f2fd;
+}
+
+.transit-section-title {
+  font-weight: bold;
+  color: #333;
+  margin: 0;
+}
+
+.transit-section-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.transit-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.transit-step:hover {
+  background-color: #f5f5f5;
+  transform: translateX(4px);
+}
+
+.step-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.step-details {
+  flex: 1;
+}
+
+.step-title {
+  font-weight: 500;
+  color: #333;
+  margin: 0;
+}
+
+.step-description {
+  font-size: 14px;
+  color: #666;
+  margin: 4px 0 0 0;
 }
 
 .transit-section.transit {
@@ -35,29 +136,12 @@
   background-color: #f1f8e9;
 }
 
-.transit-section-content {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
+.transit-section.bicycle {
+  background-color: #FBBC05;
 }
 
-.transit-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background-color: #4285F4;
-  border-radius: 50%;
-  padding: 4px;
-}
-
-.transit-icon svg {
-  fill: white;
-}
-
-.transit-details {
-  flex: 1;
+.transit-section.car {
+  background-color: #EA4335;
 }
 
 .transit-line {

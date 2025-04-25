@@ -93,26 +93,20 @@ export interface CheckStatusResponse {
 
 // Route Response (Backend A* yanıtına göre güncellendi)
 // Bu yapı backend'deki DirectionsView'da oluşturulan yanıta uymalı
-export interface RouteLeg {
-  steps: any[]; // Adım adım tarif için (şimdilik any)
-  summary: string;
-  weight: number;
-  duration: number;
+interface RouteStep {
+  instruction: string;
   distance: number;
+  duration: number;
+  maneuver: 'turn-right' | 'turn-left' | 'straight' | 'arrive';
 }
 
-export interface Route {
-  geometry: any; // GeoJSON LineString olmalı
-  legs: RouteLeg[];
-  weight_name?: string; // Opsiyonel olabilir
-  weight: number;
-  duration: number; // Başlangıç moduna ait süre
+interface Route {
+  geometry: any;
   distance: number;
-  durations_by_mode?: { // Tüm modların süreleri (yeni)
-    driving: number | null;
-    walking: number | null;
-    cycling: number | null;
-  }; 
+  durations_by_mode: {
+    [mode: string]: number | null;
+  };
+  steps: RouteStep[];
 }
 
 export interface RouteResponse {
@@ -152,3 +146,20 @@ export interface GoogleGeocodeResponse {
 }
 
 // ... (diğer interface'ler: Coordinate, Pharmacy, PointOfInterest, RouteResponse, GeocodeResponse, AddressComponent, GoogleGeocodingResponse vb.) 
+
+export interface NavigationStep {
+  instruction: string;
+  distance: number;
+  duration: number;
+  maneuver: 'turn-right' | 'turn-left' | 'straight' | 'arrive';
+  bearing?: number; // bearing'i opsiyonel yaptık
+}
+
+export interface NavigationState {
+  steps: NavigationStep[];
+  currentStep: number;
+  remainingDistance: number;
+  remainingDuration: number;
+  isActive: boolean;
+  isRerouting: boolean;
+} 

@@ -13,7 +13,13 @@ const RegisterContainer = styled.div`
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: linear-gradient(to right, #3b82f6, #8b5cf6);
+  background-image: url('/loginBg.png');
+  background-size: cover;
+  background-position: center;
+  
+  @media (max-width: 768px) {
+    background-image: url('/loginMobileBg.png');
+  }
 `;
 
 const FormContainer = styled.div`
@@ -29,7 +35,7 @@ const FormContainer = styled.div`
 const Title = styled.h2`
   font-size: 2rem;
   font-weight: bold;
-  color: rgb(77, 101, 140);
+  color: rgb(63, 63, 63);
   text-align: center;
   margin-bottom: 1.5rem;
 `;
@@ -142,7 +148,7 @@ const Register = () => {
     try {
       const { confirmPassword, ...data } = formData;
       console.log("Registering user:", { username: data.username, email: data.email, password: data.password });
-      const response = await fetch(`${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/users/register/`, {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_API_URL}/api/users/register/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

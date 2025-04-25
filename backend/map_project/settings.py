@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'wifi_points',  # WiFi noktaları uygulaması
     'bicycle_points',  # Bisiklet istasyonları uygulaması
     'background_task', # Arka plan görevleri için eklendi
+    'taxi_stations',  # Taksi durakları uygulaması
 ]
 
 MIDDLEWARE = [
@@ -162,6 +163,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://localhost:3001",  # Frontend'in çalıştığı port
     "http://localhost:3003", # Frontend'in çalıştığı yeni port
     "https://frontend-app-1094631205138.us-central1.run.app",
 ]
