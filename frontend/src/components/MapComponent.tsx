@@ -34,6 +34,7 @@ import HamburgerMenu from './HamburgerMenu';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';  // Import image for iconUrl
 import markerIconRetina from 'leaflet/dist/images/marker-icon-2x.png';  // Import image for iconRetinaUrl
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';  // Import image for shadowUrl
+import SaveFavoriteModal from './SaveFavoriteModal';
 
 // Fix Leaflet default icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -131,6 +132,8 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
     return now.toISOString().slice(0, 16);
   };
 
+  const [showFavoriteModal, setShowFavoriteModal] = useState(false);
+  const [favoriteToSave, setFavoriteToSave] = useState<{ lat: number; lng: number; address: string } | null>(null);
   const [map, setMap] = useState<L.Map | null>(null);
   const [source, setSource] = useState<Coordinate | null>(null);
   const [destination, setDestination] = useState<Coordinate | null>(null);
@@ -648,37 +651,42 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   }, [mapRef]); // Only run when map is initialized
 
   const saveMarkerAsFavorite = async (lat: number, lng: number, address: string) => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-          toast.error("Please log in to save favorites.");
-          return;
+    setFavoriteToSave({ lat, lng, address });
+    setShowFavoriteModal(true);
+  };  
+
+  const handleSaveFavorite = async (name: string, tag: string | null) => {
+    if (!favoriteToSave) return;
+    const { lat, lng, address } = favoriteToSave;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error("Please log in to save favorites.");
+      return;
+    }
+    try {
+      const response = await axios.post(
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/users/favorites/`,
+        { name, address, latitude: lat, longitude: lng, tag },
+        { headers: { 'Authorization': `Token ${token}` } }
+      );
+      if (response.status === 201) {
+        toast.success(`'${name}' added to favorites!`);
+        if (mapRef.current) mapRef.current.closePopup();
+      } else {
+        toast.error("Failed to save favorite. Unexpected response.");
       }
-      const favName = prompt("Enter a name for this favorite location:", address.split(',')[0]);
-      if (!favName) return;
-      const favTagInput = prompt("Enter a tag (e.g., Home, Work) or leave empty:");
-      const favTag = favTagInput || null;
-      try {
-          const response = await axios.post(
-              `${import.meta.env.VITE_BACKEND_API_URL}/api/users/favorites/`,
-              { name: favName, address: address, latitude: lat, longitude: lng, tag: favTag },
-              { headers: { 'Authorization': `Token ${token}` } }
-          );
-          if (response.status === 201) {
-              toast.success(`'${favName}' added to favorites!`);
-              if(mapRef.current) mapRef.current.closePopup();
-          } else {
-              toast.error("Failed to save favorite. Unexpected response.");
-          }
-      } catch (error: any) {
-          console.error("Error saving favorite from marker:", error);
-          const errorMsg = error.response?.data?.detail ||
-                          error.response?.data?.non_field_errors?.[0] ||
-                          error.response?.data?.latitude?.[0] ||
-                          error.response?.data?.longitude?.[0] ||
-                          "Failed to save favorite.";
-          toast.error(`Error: ${errorMsg}`);
-      }
-  };
+    } catch (error: any) {
+      console.error("Error saving favorite from modal:", error);
+      const errorMsg = error.response?.data?.detail ||
+        error.response?.data?.non_field_errors?.[0] ||
+        error.response?.data?.latitude?.[0] ||
+        error.response?.data?.longitude?.[0] ||
+        "Failed to save favorite.";
+      toast.error(`Error: ${errorMsg}`);
+    } finally {
+      setFavoriteToSave(null);
+    }
+  };  
 
   // --- Rota ve Bilgilerini Temizleme Fonksiyonu --- 
   const clearRoute = useCallback(() => {
@@ -1661,6 +1669,13 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
           </div>
         </div>
       )}
+
+      <SaveFavoriteModal
+        isOpen={showFavoriteModal}
+        onClose={() => setShowFavoriteModal(false)}
+        onSave={handleSaveFavorite}
+        defaultName={favoriteToSave?.address.split(',')[0] || 'Favorite'}
+      />
     </div>
   );
 };
