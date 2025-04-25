@@ -65,6 +65,28 @@ interface SettingsPageProps {
   onLogout: () => void;
 }
 
+// Tag emojileri için map
+const TAG_EMOJIS: { [key: string]: string } = {
+  home: '🏠',
+  work: '💼',
+  school: '🎓',
+  favorite: '⭐',
+  shopping: '🛍️',
+  restaurant: '🍽️',
+  gym: '💪',
+  other: '📍'
+};
+
+// İlk harfi büyük yapma fonksiyonu
+const capitalizeFirstLetter = (str: string): string => {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
+// Tag için emoji alma fonksiyonu
+const getTagEmoji = (tag: string): string => {
+  return TAG_EMOJIS[tag.toLowerCase()] || TAG_EMOJIS.other;
+};
+
 const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => {
   // User profile state (address kaldırıldı)
   const [username, setUsername] = useState<string>('');
@@ -933,12 +955,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
                     <div className="location-info">
                       <h3>{location.name}</h3>
                       <p className="location-address">{location.address}</p>
-                      <p className="location-tag">{location.tag || 'No tag'}</p>
+                      <p className="location-tag">
+                        {location.tag ? `${getTagEmoji(location.tag)} ${capitalizeFirstLetter(location.tag)}` : 'No tag'}
+                      </p>
                     </div>
                     <div className="location-actions">
                       <button 
                         onClick={() => {
-                          // Navigate to map with this location
                           window.location.href = `/map?lat=${location.latitude}&lng=${location.longitude}&name=${encodeURIComponent(location.name)}`;
                         }}
                         className="use-location-btn"
