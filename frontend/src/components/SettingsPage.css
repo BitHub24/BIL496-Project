@@ -241,7 +241,82 @@ button:disabled {
 
 /* Profil Bölümü */
 .profile-form {
-  /* margin-bottom: 30px; Kaldırıldı, section yönetiyor */
+  background-color: #f8f9fa;
+  padding: 25px;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  margin: 20px 0; /* Üst ve alt margin ekledik */
+  width: 100%; /* Tam genişlik */
+  box-sizing: border-box; /* Padding'in genişliğe dahil olması için */
+}
+
+.profile-form h4 {
+  color: #333;
+  margin: 0 0 20px 0; /* Sol ve sağ margin'i kaldırdık */
+}
+
+.profile-form input[type="text"],
+.profile-form textarea {
+  width: 100%;
+  padding: 12px 15px; /* Sol ve sağ padding artırıldı */
+  margin-bottom: 20px; /* Alt margin artırıldı */
+  border: 1px solid #e0e0e0;
+  border-radius: 6px; /* Border radius artırıldı */
+  font-size: 14px;
+  box-sizing: border-box; /* Padding'in genişliğe dahil olması için */
+}
+
+.profile-form textarea {
+  min-height: 100px; /* Yükseklik artırıldı */
+  resize: vertical;
+}
+
+.profile-form .multiplier-control {
+  margin: 0 0 25px 0; /* Sol ve sağ margin'i kaldırdık, alt margin artırıldı */
+  padding: 0; /* Padding'i sıfırladık */
+}
+
+.profile-form .multiplier-control label {
+  display: block;
+  margin: 0 0 10px 0; /* Sol ve sağ margin'i kaldırdık */
+  color: #555;
+  font-weight: 500;
+}
+
+.profile-form .multiplier-control input[type="range"] {
+  width: 100%;
+  margin: 0 0 8px 0; /* Sol ve sağ margin'i kaldırdık */
+}
+
+.profile-form .multiplier-control span {
+  color: #666;
+  font-size: 14px;
+  display: block; /* Block element yaptık */
+  margin: 5px 0; /* Üst ve alt margin ekledik */
+}
+
+.profile-form .multiplier-description {
+  font-size: 12px;
+  color: #777;
+  margin: 8px 0 0 0; /* Sol ve sağ margin'i kaldırdık */
+  line-height: 1.4; /* Satır yüksekliği artırıldı */
+}
+
+.profile-form button {
+  background-color: #4285F4;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 20px;
+  cursor: pointer;
+  font-weight: 600;
+  width: 100%;
+  margin: 10px 0 0 0; /* Sol ve sağ margin'i kaldırdık */
+  transition: background-color 0.2s ease;
+}
+
+.profile-form button:hover {
+  background-color: #3367d6;
 }
 
 .password-section {
@@ -505,10 +580,6 @@ button:disabled {
   border-radius: 6px;
   margin-top: 25px;
   border: 1px solid #e5e5e5;
-}
-
-.profile-form {
-  /* ... */
 }
 
 /* Kayıtlı Konumlar ve Seyahat Geçmişi */

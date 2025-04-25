@@ -292,18 +292,28 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
     setSearchQuery(query);
     if (query.length > 2) {
       try {
+        console.log('Searching with query:', query);
         const response = await axios.get(
           `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/road-segments/search/`,
           {
-            params: { query },
+            params: { q: query },
             headers: { Authorization: `Token ${localStorage.getItem("token")}` },
           }
         );
-        setSearchResults(response.data as RoadSegment[]);
+        console.log('Search response:', response.data);
+        if (Array.isArray(response.data)) {
+          setSearchResults(response.data);
+        } else {
+          console.error('Unexpected response format:', response.data);
+          setSearchResults([]);
+        }
       } catch (error) {
         console.error('Error searching roads:', error);
         toast.error('Failed to search for roads');
+        setSearchResults([]);
       }
+    } else {
+      setSearchResults([]);
     }
   };
 
@@ -314,17 +324,29 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
       return;
     }
     try {
+      console.log('Search button clicked with query:', searchQuery);
       const response = await axios.get(
         `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/road-segments/search/`,
         {
-          params: { query: searchQuery },
+          params: { q: searchQuery },
           headers: { Authorization: `Token ${localStorage.getItem("token")}` },
         }
       );
-      setSearchResults(response.data as RoadSegment[]);
+      console.log('Search button response:', response.data);
+      if (Array.isArray(response.data)) {
+        setSearchResults(response.data);
+        if (response.data.length === 0) {
+          toast.info('No results found');
+        }
+      } else {
+        console.error('Unexpected response format:', response.data);
+        setSearchResults([]);
+        toast.error('API response is not in expected format');
+      }
     } catch (error) {
       console.error('Error searching roads:', error);
       toast.error('Failed to search for roads');
+      setSearchResults([]);
     }
   };
 
@@ -921,19 +943,46 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
                     value={newProfileName}
                     onChange={(e) => setNewProfileName(e.target.value)}
                     placeholder="Profile Name"
-                    className="profile-input"
                   />
                   <textarea
                     value={newProfileDescription}
                     onChange={(e) => setNewProfileDescription(e.target.value)}
-                    placeholder="Description (optional)"
-                    className="profile-description-input"
+                    placeholder="Profile Description (optional)"
                   />
-                  <button 
-                    onClick={handleSaveProfile}
-                    disabled={!newProfileName}
-                    className="create-button"
-                  >
+                  
+                  <div className="multiplier-control">
+                    <label>Preferred Road Multiplier:</label>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="1"
+                      step="0.05"
+                      value={preferMultiplier}
+                      onChange={(e) => setPreferMultiplier(parseFloat(e.target.value))}
+                    />
+                    <span>{preferMultiplier.toFixed(2)}x</span>
+                    <p className="multiplier-description">
+                      Lower values make preferred roads more attractive (faster).
+                    </p>
+                  </div>
+                  
+                  <div className="multiplier-control">
+                    <label>Avoided Road Multiplier:</label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      step="0.5"
+                      value={avoidMultiplier}
+                      onChange={(e) => setAvoidMultiplier(parseFloat(e.target.value))}
+                    />
+                    <span>{avoidMultiplier.toFixed(2)}x</span>
+                    <p className="multiplier-description">
+                      Higher values make avoided roads less attractive (slower).
+                    </p>
+                  </div>
+                  
+                  <button onClick={handleSaveProfile}>
                     Create Profile
                   </button>
                 </div>

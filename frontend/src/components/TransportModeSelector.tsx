@@ -41,9 +41,9 @@ const TransportModeSelector: React.FC<TransportModeSelectorProps> = ({
 
       let apiUrl;
       if (selectedMode === "transit") {
-        apiUrl = `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/directions/transit/`;
+        apiUrl = `${import.meta.env.VITE_BACKEND_API_URL}/api/directions/transit/`;
       } else {
-        apiUrl = `${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/directions/route/`;
+        apiUrl = `${import.meta.env.VITE_BACKEND_API_URL}/api/directions/route/`;
       }
 
       // Make a test request to the transit API

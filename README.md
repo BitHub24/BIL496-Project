@@ -67,7 +67,7 @@ Bu proje, Ankara için bir harita üzerinde rota bulma, güncel trafik durumu, n
         ```
     *   `frontend` dizininde bir `.env` dosyası oluşturun ve aşağıdaki değişkenleri tanımlayın:
         ```dotenv
-        VITE_REACT_APP_BACKEND_API_URL=http://127.0.0.1:8000 # Backend sunucu adresi
+        VITE_BACKEND_API_URL =http://127.0.0.1:8000 # Backend sunucu adresi
         VITE_REACT_APP_GOOGLE_API_KEY=google-maps-api-anahtari # Google Geocoding API anahtarı
         ```
     *   **Önemli:** `VITE_REACT_APP_GOOGLE_API_KEY` için Google Cloud Platform'dan bir API anahtarı almanız ve Geocoding API'yi etkinleştirmeniz gerekmektedir.

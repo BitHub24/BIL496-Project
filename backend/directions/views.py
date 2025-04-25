@@ -286,10 +286,10 @@ class DirectionsView(APIView):
                     # Dönüş yönünü belirle
                     if prev_bearing is not None:
                         angle_diff = ((bearing - prev_bearing + 180) % 360) - 180
-                        if angle_diff > 30:
+                        if angle_diff < -30:  # Changed from > to <
                             maneuver = 'turn-right'
                             instruction = f"Turn right and continue for {int(step_distance)} meters"
-                        elif angle_diff < -30:
+                        elif angle_diff > 30:  # Changed from < to >
                             maneuver = 'turn-left'
                             instruction = f"Turn left and continue for {int(step_distance)} meters"
                         else:
