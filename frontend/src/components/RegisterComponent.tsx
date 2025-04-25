@@ -142,7 +142,7 @@ const Register = () => {
     try {
       const { confirmPassword, ...data } = formData;
       console.log("Registering user:", { username: data.username, email: data.email, password: data.password });
-      const response = await fetch(`${import.meta.env.VITE_REACT_APP_BACKEND_API_URL}/api/users/register/`, {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_API_URL}/api/users/register/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
