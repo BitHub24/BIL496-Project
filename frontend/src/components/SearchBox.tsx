@@ -4,23 +4,25 @@ import './SearchBox.css';
 import { 
     SearchBoxProps, 
     SearchBoxRef, 
-    SearchResult, 
-    GoogleGeocodingResponse, 
-    AddressComponent 
+    GoogleGeocodeResponse,
+    GoogleGeocodeResult
 } from '../models/Models';
 
 // SearchResult tipini genişletelim 
-interface ExtendedSearchResult extends SearchResult {
+interface ExtendedSearchResult {
   name?: string; 
   street?: string;
   street_number?: string;
   district?: string; 
   city?: string; 
-  full_address: string; 
+  full_address: string;
+  lat: string;
+  lon: string;
+  display_name: string;
 }
 
 // Yardımcı fonksiyon
-const findComponent = (components: AddressComponent[], type: string): string | undefined => {
+const findComponent = (components: Array<{ long_name: string; short_name: string; types: string[] }>, type: string): string | undefined => {
     return components.find(comp => comp.types.includes(type))?.long_name;
 };
 
@@ -64,7 +66,7 @@ const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps & { onFocus?: () => vo
     try {
       const googleApiKey = localStorage.getItem('googleApiKey');
       if (!googleApiKey) throw new Error('Google API key not found');
-      const response = await axios.get<GoogleGeocodingResponse>(
+      const response = await axios.get<GoogleGeocodeResponse>(
           'https://maps.googleapis.com/maps/api/geocode/json',
           {
               params: { 
@@ -74,7 +76,7 @@ const SearchBox = forwardRef<SearchBoxRef, SearchBoxProps & { onFocus?: () => vo
                }
           }
       );
-      const searchResults: ExtendedSearchResult[] = response.data.results.map(item => {
+      const searchResults: ExtendedSearchResult[] = response.data.results.map((item: GoogleGeocodeResult) => {
            const components = item.address_components;
            const name = findComponent(components, 'establishment') || 
                         findComponent(components, 'point_of_interest') || 

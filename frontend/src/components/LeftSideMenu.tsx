@@ -15,6 +15,7 @@ interface LeftSideMenuProps {
   onWifiClick: () => void;
   onBicycleClick: () => void;
   onPharmacyClick: () => void;
+  isTransportExpanded: boolean;
 }
 
 const LeftSideMenu: React.FC<LeftSideMenuProps> = ({
@@ -28,10 +29,11 @@ const LeftSideMenu: React.FC<LeftSideMenuProps> = ({
   onTaxiClick,
   onWifiClick,
   onBicycleClick,
-  onPharmacyClick
+  onPharmacyClick,
+  isTransportExpanded
 }) => {
   return (
-    <div className="left-side-menu">
+    <div className={`left-side-menu ${isTransportExpanded ? 'transport-expanded' : ''}`}>
       <button 
         onClick={onTaxiClick} 
         className={`left-menu-item ${isLoadingTaxis ? 'loading' : ''}`} 

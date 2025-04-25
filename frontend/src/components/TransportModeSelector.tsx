@@ -14,6 +14,16 @@ const TransportModeSelector: React.FC<TransportModeSelectorProps> = ({
   selectedMode, 
   onToggle 
 }) => {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    // Add a small delay to ensure the component is mounted before showing
+    const timer = setTimeout(() => {
+      setIsVisible(true);
+    }, 50);
+    return () => clearTimeout(timer);
+  }, []);
+
   const handleModeChange = (mode: string) => {
     // If selecting transit mode, check if the API is available
     if (mode === 'transit') {
@@ -70,7 +80,7 @@ const TransportModeSelector: React.FC<TransportModeSelectorProps> = ({
   };
 
   return (
-    <div className="transport-mode-selector">
+    <div className={`transport-mode-selector ${isVisible ? 'visible' : ''}`}>
       <div className="mode-options">
         <button 
           className={`mode-button ${selectedMode === 'driving' ? 'active' : ''}`}

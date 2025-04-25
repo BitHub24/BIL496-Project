@@ -81,13 +81,11 @@
 }
 
 .point-of-interest-buttons {
-  display: flex;
-  margin-top: 5px;
-  gap: 5px;
+  margin: 0;
+  width: 100%;
 }
 
 .poi-button,
-.route-button,
 .navigation-button {
   flex: 1;
   padding: 8px 12px;
@@ -105,6 +103,25 @@
   justify-content: center;
   gap: 8px;
 }
+.route-button {
+  flex: 1;
+  padding: 8px 12px;
+  background-color: #4285F4;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
 
 .poi-button:hover,
 .route-button:hover,
@@ -188,8 +205,13 @@
 
 /* Yeni Ortalayıcı Wrapper */
 .mode-menu-toggle-wrapper {
-  margin-top: 5px;
-  margin-bottom: 5px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding-left: 17px;
+  padding-right: 17px;
+  height: 100%;
 }
 
 /* Buton içindeki ikon ve isim hizalaması */
@@ -650,7 +672,7 @@
   flex-direction: column;
   gap: 8px;
   z-index: 900;
-  width: 100%;
+  width: 80%;
   max-width: 100%;
 }
 
@@ -668,7 +690,7 @@
 }
 
 .bottom-navigation-section .navigation-button {
-  background-color: #4285F4;
+  background-color: #083c5d;
   color: white;
   padding: 10px;
   border: none;

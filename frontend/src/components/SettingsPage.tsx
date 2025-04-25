@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import './SettingsPage.css';
-import HamburgerMenu from './HamburgerMenu';
 
 interface RoadSegment {
   id: number;
@@ -121,7 +121,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
 
   // Active tab state
   const [activeTab, setActiveTab] = useState<string>('profile');
-  const [isHamburgerOpen, setIsHamburgerOpen] = useState(false);
 
   // Fetch user data (address state update kaldırıldı)
   const fetchUserProfile = useCallback(async () => {
@@ -546,11 +545,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
   // Render öncesi loglama
   console.log('[Render Check] Username:', username, 'Email:', email);
 
-  // Yeni toggle fonksiyonu
-  const toggleHamburgerMenu = () => {
-    setIsHamburgerOpen(!isHamburgerOpen);
-  };
-
   // Handle profile update
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -589,14 +583,24 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
 
   return (
     <div className="settings-container">
+      <div className="settings-top-left">
+        <button 
+          onClick={() => window.location.href = '/map'}
+          className="return-button"
+          title="Return to Map"
+        >
+          <FontAwesomeIcon icon="arrow-left" />
+        </button>
+      </div>
       <div className="settings-top-right">
-        <HamburgerMenu 
-          isLoggedIn={isLoggedIn} 
-          onLogout={onLogout} 
-          isOpen={isHamburgerOpen} 
-          onToggle={toggleHamburgerMenu} 
-          openDirection="down"
-        />
+        <button 
+          onClick={onLogout}
+          className="settings-logout-button"
+          title="Logout"
+        >
+          <FontAwesomeIcon icon="sign-out-alt" />
+          <span className="logout-text">Logout</span>
+        </button>
       </div>
       
       <h1>Settings</h1>
@@ -671,17 +675,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
                 />
               </div>
               
-              <div className="form-group">
-                <label htmlFor="phoneNumber">Phone Number</label>
-                <input
-                  type="tel"
-                  id="phoneNumber"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                />
-              </div>
-              
-              <button type="submit" className="save-profile-button">
+              <button type="submit" className="blue-btn">
                 Save Profile
               </button>
             </form>
@@ -723,7 +717,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
                   />
                 </div>
                 
-                <button type="submit" className="update-password-button">
+                <button type="submit" className="update-password-button blue-btn">
                   Update Password
                 </button>
               </form>

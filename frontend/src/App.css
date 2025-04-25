@@ -108,3 +108,8 @@ main {
     height: calc(100vh - var(--header-height, 55px));
   }
 }
+.blue-btn{
+  background-color: #083c5d;
+  color: white;
+  border-color: #083c5d;
+}

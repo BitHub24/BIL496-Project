@@ -5,7 +5,9 @@ import {
   faPills, 
   faRoute, 
   faLocationArrow,
-  faTaxi
+  faTaxi,
+  faArrowLeft,
+  faSignOutAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { fab } from '@fortawesome/free-brands-svg-icons';
 
@@ -17,5 +19,6 @@ library.add(
   faRoute,
   faLocationArrow,
   faTaxi,
-  fab
+  faArrowLeft,
+  faSignOutAlt,
 ); 

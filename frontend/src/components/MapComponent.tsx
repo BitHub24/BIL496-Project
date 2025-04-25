@@ -1471,6 +1471,15 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
             </span>
             <span>{isModeMenuOpen ? '▲' : '▼'}</span>
           </button>
+          <div className="point-of-interest-buttons">
+            <button 
+              onClick={() => source && destination && getRoute(source, destination)} 
+              className="route-button" 
+              disabled={loadingRoute || !source || !destination}
+            >
+              <FontAwesomeIcon icon={faRoute} /> {loadingRoute ? 'Calculating...' : 'Get Directions'}
+            </button>
+        </div>
         </div>
 
         {isModeMenuOpen && (
@@ -1493,15 +1502,6 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
           </div>
         )}
         
-        <div className="point-of-interest-buttons">
-          <button 
-            onClick={() => source && destination && getRoute(source, destination)} 
-            className="route-button" 
-            disabled={loadingRoute || !source || !destination}
-          >
-            <FontAwesomeIcon icon={faRoute} /> {loadingRoute ? 'Calculating...' : 'Get Directions'}
-          </button>
-        </div>
         
         <TransitInfoPanel 
           transitInfo={transitInfo} 
@@ -1559,6 +1559,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         onWifiClick={toggleWifiLayer}
         onBicycleClick={toggleBicycleLayer}
         onPharmacyClick={fetchPharmacies}
+        isTransportExpanded={isModeMenuOpen}
       />
 
       <div id="map" style={{ height: '100%', width: '100%' }} />
