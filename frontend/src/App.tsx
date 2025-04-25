@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import MapComponent from "./components/MapComponent";
 import { Toaster } from 'sonner';
 import './App.css';
@@ -18,12 +18,10 @@ const App = () => {
 
   // Handle logout
   const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('googleApiKey');
+    localStorage.removeItem('hereApiKey');
     setIsLoggedIn(false);
-  };
-
-  // Handle successful login
-  const handleLoginSuccess = () => {
-    setIsLoggedIn(true);
   };
 
   return (
@@ -31,10 +29,24 @@ const App = () => {
       <div className="App">
         <main>
           <Routes>
-            <Route path="/" element={<Login onLoginSuccess={handleLoginSuccess} />} />
-            <Route path="/map" element={<MapComponent isLoggedIn={isLoggedIn} onLogout={handleLogout} />} />
+            <Route path="/" element={<Login setIsLoggedIn={setIsLoggedIn} />} />
+            <Route 
+              path="/map" 
+              element={
+                <MapComponent isLoggedIn={isLoggedIn} onLogout={handleLogout} />
+              } 
+            />
             <Route path="/register" element={<RegisterComponent />} />
-            <Route path="/settings" element={<SettingsPage isLoggedIn={isLoggedIn} onLogout={handleLogout} />} />
+            <Route 
+              path="/settings" 
+              element={
+                isLoggedIn ? (
+                  <SettingsPage isLoggedIn={isLoggedIn} onLogout={handleLogout} />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              } 
+            />
           </Routes>
         </main>
         <Toaster position="top-center" richColors />

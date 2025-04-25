@@ -174,9 +174,13 @@ const Divider = styled.div`
   }
 `;
 
+// Update the interface to include setIsLoggedIn prop
+interface LoginProps {
+  setIsLoggedIn: (value: boolean) => void;
+}
 
-// Login Component
-const Login = () => {
+// Update the Login component to accept props
+const Login: React.FC<LoginProps> = ({ setIsLoggedIn }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -190,7 +194,6 @@ const Login = () => {
     setError("");
 
     try {
-      // Send login credentials to the backend API
       const response = await fetch(`${BACKEND_API_URL}/api/users/login/`, {
         method: "POST",
         headers: {
@@ -203,17 +206,16 @@ const Login = () => {
         throw new Error("Login failed");
       }
 
-      // Parse the response
       const data = await response.json();
-      if (import.meta.env.DEV)console.log("Login response data:", data); // Log the response to check its structure
+      if (import.meta.env.DEV)console.log("Login response data:", data);
 
-      // Store API keys AND the authentication token
       if (data.token) {
-        localStorage.setItem("token", data.token); // Store the token
+        localStorage.setItem("token", data.token);
         console.log("Token stored in localStorage");
+        setIsLoggedIn(true); // Set login state to true after successful login
       } else {
         console.error("Token not found in login response!");
-        throw new Error("Login successful, but token missing in response."); // Throw error if token is missing
+        throw new Error("Login successful, but token missing in response.");
       }
 
       if (data.google_api_key) {
@@ -223,10 +225,6 @@ const Login = () => {
         localStorage.setItem("hereApiKey", data.here_api_key);
       }
 
-      // Set login state (assuming you have a global state or context)
-      // setIsLoggedIn(true); // Example - replace with your actual state update
-
-      // Redirect to the map page
       navigate("/map");
     } catch (err) {
       if (err instanceof Error) {
@@ -236,12 +234,12 @@ const Login = () => {
       }
     }
   };
+
   const googleLogin = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
       if (import.meta.env.DEV)console.log('Access token:', tokenResponse.access_token);
 
       try {
-        // Send the access token to the backend to verify and handle user creation
         const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
           headers: {
             Authorization: `Bearer ${tokenResponse.access_token}`,
@@ -266,11 +264,12 @@ const Login = () => {
           else{
             const data = await response.json();
             if (data.token) { 
-              localStorage.setItem("token", data.token); // Store the token
+              localStorage.setItem("token", data.token);
               console.log("Token stored in localStorage");
+              setIsLoggedIn(true); // Set login state to true after successful Google login
             } else {
               console.error("Token not found in login response!");
-              throw new Error("Login successful, but token missing in response."); // Throw error if token is missing
+              throw new Error("Login successful, but token missing in response.");
             }
 
             if (data.google_api_key) {
