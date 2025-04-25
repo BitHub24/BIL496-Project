@@ -1,5 +1,6 @@
 from django.db import models
-# from django.contrib.gis.db import models # Yorum satırı temizlendi
+from django.contrib.gis.db import models as gis_models # Eğer GeoDjango kuruluysa, yoksa normal models kullan
+from django.conf import settings
 
 class RoadSegment(models.Model):
     """Model representing a road segment that can be preferred or avoided."""
@@ -91,3 +92,33 @@ class RoutePreferenceProfile(models.Model):
                 user=self.user, is_default=True
             ).exclude(pk=self.pk).update(is_default=False)
         super().save(*args, **kwargs)
+
+# YENİ MODEL: Kullanıcı Alan Tercihi
+class UserAreaPreference(models.Model):
+    """Stores user preferences for specific geographic areas (bounding boxes)."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        related_name='area_preferences', 
+        on_delete=models.CASCADE
+    )
+    preference_type = models.CharField(
+        max_length=10, 
+        choices=[('prefer', 'Prefer'), ('avoid', 'Avoid')]
+    )
+    # Alanın köşe koordinatları
+    # Hassasiyet için DecimalField kullanmak daha iyi olabilir
+    min_lat = models.DecimalField(max_digits=14, decimal_places=7) # max_digits 11 -> 14
+    min_lon = models.DecimalField(max_digits=14, decimal_places=7) # max_digits 11 -> 14
+    max_lat = models.DecimalField(max_digits=14, decimal_places=7) # max_digits 11 -> 14
+    max_lon = models.DecimalField(max_digits=14, decimal_places=7) # max_digits 11 -> 14
+    
+    reason = models.TextField(blank=True, null=True) # Opsiyonel açıklama
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Bir kullanıcının aynı alan için birden fazla tercihi olmamasını sağlayabiliriz (opsiyonel)
+        # unique_together = ('user', 'min_lat', 'min_lon', 'max_lat', 'max_lon')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_preference_type_display()} Area ({self.min_lat},{self.min_lon} to {self.max_lat},{self.max_lon})"

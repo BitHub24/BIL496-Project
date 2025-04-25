@@ -706,3 +706,91 @@ button:disabled {
     padding: 15px;
   }
 }
+
+/* Yeni eklenen containerlar için stiller */
+.search-and-map-container {
+  display: flex;
+  flex-direction: column; /* Öğeleri alt alta sırala */
+  gap: 20px; /* Arama ve harita arasına boşluk ekle */
+  margin-bottom: 30px; /* Altındaki bölümle arasına boşluk */
+}
+
+.search-controls {
+  /* Arama kontrolleri için özel stiller buraya eklenebilir */
+  /* Örneğin, genişlik ayarı vs. */
+  /* Şimdilik flex item olarak davranması yeterli */
+}
+
+.map-display-area {
+  /* Harita alanı için özel stiller */
+  width: 100%; /* Genişliği doldur */
+  min-height: 400px; /* Minimum yükseklik */
+}
+
+#settings-map-container {
+  height: 100%; /* Ebeveyninin yüksekliğini al */
+  width: 100%;
+  border-radius: 8px; /* Köşeleri yuvarlat (opsiyonel) */
+  border: 1px solid #ccc; /* Kenarlık ekle (opsiyonel) */
+}
+
+/* Arama sonuçları listesi ve seçili öğe stili */
+.search-results {
+  margin-top: 15px;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #eee;
+  border-radius: 4px;
+}
+
+.results-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.results-list li {
+  padding: 10px 15px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.results-list li:last-child {
+  border-bottom: none;
+}
+
+.results-list li:hover {
+  background-color: #f9f9f9;
+}
+
+.results-list li.selected {
+  background-color: #e0eaff;
+  font-weight: bold;
+}
+
+.results-list .road-name {
+  flex-grow: 1;
+  margin-right: 10px;
+}
+
+.results-list .road-type {
+  font-size: 0.9em;
+  color: #777;
+  flex-shrink: 0;
+}
+
+/* Seçili sonuç bilgi kutusu */
+.selected-result-info {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+}
+
+.selected-result-info h4 {
+  margin-top: 0;
+  margin-bottom: 5px;
+}
