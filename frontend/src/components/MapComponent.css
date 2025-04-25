@@ -19,19 +19,20 @@
   padding: 10px;
   background-color: white;
   border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 /* Sağ Alt Kontroller Konteyneri (Güncellendi) */
 .bottom-right-controls {
   position: absolute;
-  bottom: 10px;
+  bottom: 70px;
+  /* Add spacing for the bottom navigation on mobile */
   right: 10px;
   z-index: 1050;
   display: flex;
-  flex-direction: row; /* Değiştirildi: column -> row (Yan yana) */
+  flex-direction: row;
   gap: 10px;
-  align-items: flex-end; /* Alt kenarları hizala */
+  align-items: flex-end;
 }
 
 /* Yeni Dikey Grup Konteyneri */
@@ -85,20 +86,39 @@
   gap: 5px;
 }
 
-.poi-button, .route-button {
+.poi-button,
+.route-button,
+.navigation-button {
   flex: 1;
-  padding: 6px 10px;
+  padding: 8px 12px;
   background-color: #4285F4;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
-  transition: background-color 0.2s;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
-.poi-button:hover, .route-button:hover {
+.poi-button:hover,
+.route-button:hover,
+.navigation-button:hover {
   background-color: #3367d6;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.poi-button:active,
+.route-button:active,
+.navigation-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .route-button {
@@ -111,7 +131,8 @@
 
 /* Departure time selector styles - Üst boşluk kaldırıldı */
 .departure-time-container {
-  /* margin-top: 15px; */ /* Kaldırıldı */
+  /* margin-top: 15px; */
+  /* Kaldırıldı */
   margin-bottom: 10px;
   display: flex;
   flex-direction: column;
@@ -144,16 +165,25 @@
   text-align: left;
   cursor: pointer;
   border-radius: 4px;
-  /* margin-top: 10px; */ /* Wrapper'a taşınacak */
-  /* margin-bottom: 5px; */ /* Wrapper'a taşınacak */
-  /* margin-left: auto; */ /* Kaldırıldı */
-  /* margin-right: auto; */ /* Kaldırıldı */
+  /* margin-top: 10px; */
+  /* Wrapper'a taşınacak */
+  /* margin-bottom: 5px; */
+  /* Wrapper'a taşınacak */
+  /* margin-left: auto; */
+  /* Kaldırıldı */
+  /* margin-right: auto; */
+  /* Kaldırıldı */
   font-size: 14px;
-  /* display: block; */ /* Geri alındı */
-  display: inline-flex; /* İçerik yan yana ve boyuta göre */
-  justify-content: space-between; /* Geri eklendi */
-  align-items: center; /* Geri eklendi */
-  gap: 10px; /* İkon/isim ile ok arası boşluk */
+  /* display: block; */
+  /* Geri alındı */
+  display: inline-flex;
+  /* İçerik yan yana ve boyuta göre */
+  justify-content: space-between;
+  /* Geri eklendi */
+  align-items: center;
+  /* Geri eklendi */
+  gap: 10px;
+  /* İkon/isim ile ok arası boşluk */
 }
 
 /* Yeni Ortalayıcı Wrapper */
@@ -166,16 +196,14 @@
 .mode-icon-name {
   display: flex;
   align-items: center;
-  gap: 8px; /* İkon ve metin arası boşluk */
+  gap: 8px;
+  /* İkon ve metin arası boşluk */
 }
 
 .mode-icon-name svg {
   /* Gerekirse ikon boyutu veya rengi ayarlanabilir */
-  flex-shrink: 0; /* İkonun küçülmesini engelle */
-}
-
-.mode-icon-name .mode-name {
-  /* Gerekirse metin stili ayarlanabilir */
+  flex-shrink: 0;
+  /* İkonun küçülmesini engelle */
 }
 
 .mode-menu-toggle-button:hover {
@@ -187,46 +215,65 @@
   border: 1px solid #dee2e6;
   border-radius: 4px;
   padding: 10px;
-  margin-bottom: 10px; /* Altındaki butonlarla boşluk */
-  background-color: #fff; /* Arka plan ekleyebiliriz */
+  margin-bottom: 10px;
+  /* Altındaki butonlarla boşluk */
+  background-color: #fff;
+  /* Arka plan ekleyebiliriz */
 }
 
 /* Sağ Alt Buton Stilleri (WiFi, Bisiklet, vb.) */
 .bottom-right-controls .layer-toggle-buttons {
   display: flex;
-  flex-direction: column; /* Tekrar eklendi: Butonları dikey hizala */
-  gap: 10px; /* Butonlar arası boşluk */
+  flex-direction: column;
+  /* Tekrar eklendi: Butonları dikey hizala */
+  gap: 10px;
+  /* Butonlar arası boşluk */
 }
 
 .bottom-right-controls .layer-toggle-btn {
-  background-color: white; /* Beyaz arka plan */
-  border: 1px solid rgba(0, 0, 0, 0.1); /* Hafif kenarlık */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Hafif gölge */
-  border-radius: 4px; /* Köşe yuvarlama */
-  width: 40px; /* Sabit genişlik (Hamburger ile aynı varsayılıyor) */
-  height: 40px; /* Sabit yükseklik (Hamburger ile aynı varsayılıyor) */
-  padding: 0; /* İç boşluğu sıfırla */
-  display: flex; /* İkonu ortalamak için */
-  align-items: center; /* Dikey ortala */
-  justify-content: center; /* Yatay ortala */
+  background-color: white;
+  /* Beyaz arka plan */
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  /* Hafif kenarlık */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  /* Hafif gölge */
+  border-radius: 4px;
+  /* Köşe yuvarlama */
+  width: 40px;
+  /* Sabit genişlik (Hamburger ile aynı varsayılıyor) */
+  height: 40px;
+  /* Sabit yükseklik (Hamburger ile aynı varsayılıyor) */
+  padding: 0;
+  /* İç boşluğu sıfırla */
+  display: flex;
+  /* İkonu ortalamak için */
+  align-items: center;
+  /* Dikey ortala */
+  justify-content: center;
+  /* Yatay ortala */
   cursor: pointer;
   transition: background-color 0.2s, box-shadow 0.2s;
 }
 
 .bottom-right-controls .layer-toggle-btn:hover {
-  background-color: #f8f9fa; /* Hover efekti */
+  background-color: #f8f9fa;
+  /* Hover efekti */
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
 }
 
 .bottom-right-controls .layer-toggle-btn.active {
-  background-color: #e0e0e0; /* Aktif durum rengi */
+  background-color: #e0e0e0;
+  /* Aktif durum rengi */
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .bottom-right-controls .layer-toggle-btn img {
-  width: 20px; /* İkon genişliği */
-  height: 20px; /* İkon yüksekliği */
-  display: block; /* Ekstra boşlukları engelle */
+  width: 20px;
+  /* İkon genişliği */
+  height: 20px;
+  /* İkon yüksekliği */
+  display: block;
+  /* Ekstra boşlukları engelle */
 }
 
 .bottom-right-controls .layer-toggle-btn.loading {
@@ -236,20 +283,22 @@
 }
 
 .poi-menu-toggle-wrapper {
-  margin: 0; /* Üstteki margin'i kaldırdık */
+  margin: 0;
+  /* Üstteki margin'i kaldırdık */
 }
 
 .poi-menu-toggle-button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 40px; /* Diğer butonlarla aynı yükseklik */
+  height: 40px;
+  /* Diğer butonlarla aynı yükseklik */
   padding: 8px 12px;
   background: white;
   border: 1px solid #ccc;
   border-radius: 4px;
   cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .poi-icons {
@@ -267,7 +316,7 @@
   background: white;
   border: 1px solid #ccc;
   border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   z-index: 1000;
   min-width: 150px;
 }
@@ -317,20 +366,8 @@
 /* MapStylesControl için stil */
 .map-styles-control-container button,
 .poi-menu-toggle-button,
-.hamburger-menu-button {
-  width: 40px !important;
-  height: 40px !important;
-  min-width: 40px !important;
-  min-height: 40px !important;
-  padding: 0 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  background: white !important;
-  border: 1px solid rgba(0, 0, 0, 0.1) !important;
-  border-radius: 4px !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-}
+
+.map-styles-control-container button:hover,
 
 .poi-menu-toggle-button {
   width: auto !important;
@@ -488,144 +525,347 @@
 
 /* Yeni Navigasyon Panel Stilleri */
 .navigation-panel {
-  position: absolute;
-  top: 360px !important;
-  left: 10px;
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: auto !important;
+  transform: none !important;
   background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-  padding: 15px;
-  max-width: 400px;
-  width: 90%;
-  max-height: 400px;
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+  padding: 12px;
+  width: 100%;
+  max-width: 100%;
+  max-height: 40vh;
+  /* Maximum 40% of viewport height */
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 1100;
 }
 
-.navigation-header {
-  padding: 15px;
+/* Simplified navigation header for mobile */
+.navigation-panel .navigation-header {
+  padding: 0 0 8px 0;
   border-bottom: 1px solid #eee;
+  margin-bottom: 8px;
 }
 
-.current-step {
-  display: flex;
-  align-items: center;
-  gap: 15px;
+/* Smaller current step display */
+.navigation-panel .current-step {
+  gap: 10px;
   margin-bottom: 10px;
 }
 
-.maneuver-icon {
-  width: 40px;
-  height: 40px;
-  background: #f5f5f5;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
+/* Smaller maneuver icon */
+.navigation-panel .maneuver-icon {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  margin-right: 8px;
+  font-size: 18px;
 }
 
-.step-info {
-  flex: 1;
-}
-
-.instruction {
-  font-size: 16px;
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 4px;
-}
-
-.step-distance {
+/* More compact instruction text */
+.navigation-panel .instruction {
   font-size: 14px;
-  color: #666;
-}
-
-.navigation-summary {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 10px;
-}
-
-.remaining-info {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-}
-
-.stop-navigation-btn {
-  padding: 6px 12px;
-  background: #dc3545;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.navigation-steps {
-  max-height: 200px;
-  overflow-y: auto;
-  padding: 8px 0;
-}
-
-.step-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 15px;
-  border-left: 3px solid transparent;
-  transition: background-color 0.2s;
-}
-
-.step-item:hover {
-  background-color: #f8f9fa;
-}
-
-.step-item.active {
-  background-color: #e3f2fd;
-  border-left-color: #4285f4;
-}
-
-.step-icon {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-}
-
-.step-details {
-  flex: 1;
-}
-
-.step-instruction {
-  font-size: 14px;
-  color: #333;
   margin-bottom: 2px;
 }
 
-.step-distance {
+/* More compact distance text */
+.navigation-panel .step-distance {
   font-size: 12px;
-  color: #666;
 }
 
-/* Scrollbar stilleri */
-.navigation-steps::-webkit-scrollbar {
-  width: 6px;
+/* More compact navigation steps list */
+.navigation-panel .navigation-steps {
+  max-height: 30vh;
+  gap: 5px;
 }
 
-.navigation-steps::-webkit-scrollbar-track {
-  background: #f1f1f1;
+/* Smaller step items */
+.navigation-panel .step-item,
+.navigation-panel .active-step {
+  padding: 6px 8px;
 }
 
-.navigation-steps::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 3px;
+/* Smaller buttons and summary area */
+.navigation-panel .navigation-summary {
+  padding-top: 6px;
 }
 
-.navigation-steps::-webkit-scrollbar-thumb:hover {
-  background: #666;
+/* Media queries for different screen sizes */
+@media (min-width: 768px) {
+
+  /* Tablet and larger - restore centered style */
+  .navigation-panel {
+    bottom: 20px !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    border-radius: 12px;
+    max-width: 90%;
+    width: auto;
+  }
+}
+
+/* Simplified bottom right controls */
+.bottom-right-controls {
+  position: absolute;
+  bottom: 70px;
+  /* Add spacing for the bottom navigation on mobile */
+  right: 10px;
+  z-index: 1050;
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.map-styles-control-container button,
+
+/* Basic menu styles - no hover effects */
+.map-styles-control-container .menu-content,
+
+.map-styles-control-container .menu-item,
+/* Remove all hover effects */
+.map-styles-control-container button:hover,
+.map-styles-control-container .menu-item:hover {
+  background-color: white !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Floating bottom navigation section */
+.bottom-navigation-section {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  transform: none;
+  background-color: rgba(255, 255, 255, 0.95);
+  padding: 10px 12px;
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 900;
+  width: 100%;
+  max-width: 100%;
+}
+
+.bottom-navigation-section .route-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  gap: 10px;
+  background-color: #f8f9fa;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.bottom-navigation-section .navigation-button {
+  background-color: #4285F4;
+  color: white;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+/* Media query for tablet and larger screens */
+@media (min-width: 768px) {
+  .bottom-right-controls {
+    bottom: 20px;
+    /* Original position on larger screens */
+  }
+
+  .bottom-navigation-section {
+    bottom: 20px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    border-radius: 12px;
+    max-width: 90%;
+    width: auto;
+  }
+}
+
+/* Ensure there's no overlap in navigation UIs */
+.navigation-panel,
+.bottom-navigation-section {
+  max-height: 50vh;
+  /* Maximum 50% of viewport height */
+}
+
+/* When both navigation panel and bottom navigation section are visible */
+.navigation-panel+.bottom-navigation-section,
+.bottom-navigation-section+.navigation-panel {
+  display: none;
+  /* Prevent both from showing at once */
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 767px) {
+
+  /* Position compass to the RIGHT of zoom controls (horizontal) */
+  .leaflet-control-container .leaflet-top.leaflet-left {
+    display: flex;
+    flex-direction: row;
+  }
+
+  .leaflet-control-container .leaflet-top.leaflet-left .leaflet-control-zoom {
+    margin-right: 0;
+  }
+
+  .leaflet-control-container .leaflet-top.leaflet-left .leaflet-control-compass {
+    margin-left: 5px;
+  }
+
+  .leaflet-control-container .leaflet-bottom.leaflet-left {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* Fixed height and position for left menu */
+  .left-side-menu {
+    position: absolute;
+    top: auto;
+    bottom: 80px;
+    margin-top: 0;
+    height: auto;
+    max-height: 160px;
+    /* Shorter fixed height */
+    width: auto;
+    overflow-y: auto;
+    left: 10px;
+  }
+
+  /* Disable hover expansion for left menu items on mobile */
+  .left-menu-item:hover {
+    width: 60px !important;
+    transform: none !important;
+    justify-content: center !important;
+  }
+
+  .left-menu-item:hover .menu-label {
+    opacity: 0 !important;
+    width: 0 !important;
+  }
+
+  .left-menu-item:hover .icon-left-menu {
+    margin-left: 0 !important;
+  }
+
+  /* Ensure bottom controls are always visible */
+  .bottom-right-controls {
+    bottom: 10px;
+    /* Return to original position */
+    z-index: 1200;
+    /* Ensure they appear above navigation */
+  }
+
+  /* Make buttons in bottom-right-controls equal size */
+
+
+  /* Simplified compact navigation panel for mobile - above bottom controls */
+  .navigation-panel {
+    max-height: 100px;
+    /* Limit height to show only current instruction */
+    bottom: 8% !important;
+    /* Position above bottom controls */
+    overflow: hidden;
+    /* Hide extra content */
+    border-radius: 8px;
+    /* Rounded corners all around */
+    padding: 8px;
+    width: 90%;
+    /* Not full width to avoid overlapping with controls */
+    left: 50% !important;
+    /* Ensure it's centered */
+    transform: translateX(-50%) !important;
+    /* Ensure it's centered */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Hide the steps list on mobile */
+  .navigation-panel .navigation-steps {
+    display: none;
+  }
+
+  /* Ultra simplified navigation header */
+  .navigation-panel .navigation-header {
+    padding: 0;
+    margin: 0;
+    border-bottom: none;
+  }
+
+  /* Make the current step more compact */
+  .navigation-panel .current-step {
+    margin-bottom: 2px;
+  }
+
+  /* Compact navigation sections */
+  .bottom-navigation-section {
+    height: auto;
+    max-height: 100px;
+    /* Shorter */
+    bottom: 8%;
+    /* Position above bottom controls */
+    padding: 8px 10px;
+    border-radius: 8px;
+    /* Rounded corners all around */
+    width: 90%;
+    /* Not full width to avoid overlapping with controls */
+    left: 50%;
+    transform: translateX(-50%);
+    right: auto;
+  }
+
+  /* Cancel the rule that hides navigation when both are present */
+  .navigation-panel+.bottom-navigation-section,
+  .bottom-navigation-section+.navigation-panel {
+    display: flex;
+    /* Override the display:none rule */
+  }
+
+  /* Compact search container on mobile */
+  .search-container {
+    max-width: calc(100% - 20px);
+    padding: 8px;
+    gap: 5px;
+  }
+
+  /* Smaller buttons on mobile */
+  .poi-button,
+  .route-button,
+  .navigation-button {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  /* Optimize stop navigation button for mobile */
+  .navigation-panel .navigation-summary button {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+}
+
+/* Font Awesome icon styles for buttons */
+.route-button i,
+.navigation-button i {
+  margin-right: 8px;
 }

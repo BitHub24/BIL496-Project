@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './HamburgerMenu.css';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faBars } from '@fortawesome/free-solid-svg-icons';
 
 interface HamburgerMenuProps {
   isLoggedIn: boolean;
@@ -27,7 +29,7 @@ const HamburgerMenu: React.FC<HamburgerMenuProps> = ({ isLoggedIn, onLogout, isO
   return (
     <div className="hamburger-menu-container">
       <button onClick={onToggle} className="hamburger-button">
-        ☰
+        <FontAwesomeIcon icon={faBars} />
       </button>
       {isOpen && (
         <div className={`menu-items ${openDirection === 'up' ? 'open-up' : 'open-down'}`}>

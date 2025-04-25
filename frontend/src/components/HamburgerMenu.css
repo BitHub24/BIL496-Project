@@ -1,16 +1,22 @@
 .hamburger-menu-container {
   position: relative; /* Menü öğelerinin buna göre konumlanması için */
   z-index: 1100; /* Diğer kontrollerin üzerinde olması için */
+  justify-content: center;
+  align-items: center;
 }
 
 .hamburger-button {
   background: white;
   border: 1px solid #ccc;
   border-radius: 4px;
-  padding: 5px 10px;
   cursor: pointer;
   font-size: 1.5em; /* İkon boyutu */
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  height: 40px;
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .hamburger-button:hover {
@@ -32,16 +38,22 @@
   padding: 5px 0; /* Üst ve alt iç boşluk */
 }
 
-/* Yukarı açılma stili */
+/* Yukarı açılma stili (Slide up + fade in) */
 .menu-items.open-up {
-  bottom: 100%; 
-  margin-bottom: 5px; /* Buton ile arasında boşluk */
+  bottom: 100%;
+  margin-bottom: 5px;
+  opacity: 1;
+  transform: translateY(-10px); /* Slide upward */
+  pointer-events: auto;
 }
 
-/* Aşağı açılma stili */
+/* Aşağı açılma stili (Slide down + fade in) */
 .menu-items.open-down {
   top: 100%;
-  margin-top: 5px; /* Buton ile arasında boşluk */
+  margin-top: 5px;
+  opacity: 1;
+  transform: translateY(0); /* Reset for downward open */
+  pointer-events: auto;
 }
 
 .menu-item {
@@ -51,13 +63,14 @@
   background: none;
   border: none;
   text-align: left;
-  width: 100%;
+  width: 80%;
   cursor: pointer;
   font-size: 14px;
 }
 
 .menu-item:hover {
   background-color: #f0f0f0;
+  width: 80%;
 }
 
 .logout-button {

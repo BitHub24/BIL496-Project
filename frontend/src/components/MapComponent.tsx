@@ -35,6 +35,9 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png';  // Import image f
 import markerIconRetina from 'leaflet/dist/images/marker-icon-2x.png';  // Import image for iconRetinaUrl
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';  // Import image for shadowUrl
 import SaveFavoriteModal from './SaveFavoriteModal';
+import LeftSideMenu from './LeftSideMenu';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faRoute, faLocationArrow } from '@fortawesome/free-solid-svg-icons';
 
 // Fix Leaflet default icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -197,6 +200,9 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   const [isNavigationMode, setIsNavigationMode] = useState(false);
   const [showNavigationUI, setShowNavigationUI] = useState(false);
 
+  // Add a new state variable to track pharmacy visibility
+  const [showPharmacies, setShowPharmacies] = useState<boolean>(false);
+
   useEffect(() => {
     const mapInstance = L.map('map', {
       center: ANKARA_CENTER,
@@ -204,7 +210,8 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       maxBounds: ANKARA_BOUNDS,
       minZoom: 11,
       maxZoom: 18,
-      zoomControl: false
+      zoomControl: false,
+      attributionControl:false
     });
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -489,6 +496,14 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   };
 
   const fetchPharmacies = async () => {
+    // If pharmacies are already shown, just hide them and return
+    if (showPharmacies) {
+      clearPoiMarkers();
+      clearRoute(); // Clear the route when hiding pharmacies
+      setShowPharmacies(false);
+      return;
+    }
+
     if (!source) {
       toast.error("Current location not available to find nearby pharmacies.");
       return;
@@ -529,6 +544,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
             alert('No duty pharmacies found near the selected location for today.'); 
             // POI marker'larını temizleyebiliriz?
             clearPoiMarkers();
+            setShowPharmacies(false);
             return;
         }
         
@@ -558,6 +574,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         }
 
         clearRoute(); // Sadece mevcut rotayı temizle
+        setShowPharmacies(true);
 
     } catch (error: any) {
       // 404 hatası artık veri yok demek, kullanıcıya bunu söyleyebiliriz
@@ -565,10 +582,13 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
           console.warn('[fetchPharmacies] No duty pharmacies found in backend for today.');
           alert('No duty pharmacies found for today. Data might be updating, please try again later.');
           clearPoiMarkers(); // Hata durumunda da markerları temizle
+          setShowPharmacies(false);
       } else {
           console.error('[fetchPharmacies] Error fetching pharmacies:', error.response?.data || error.message);
           alert(`Error fetching pharmacies: ${error.response?.statusText || error.message}`);
       }
+    } finally {
+      setLoadingPharmacies(false);
     }
   };
 
@@ -689,28 +709,36 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   };  
 
   // --- Rota ve Bilgilerini Temizleme Fonksiyonu --- 
-  const clearRoute = useCallback(() => {
-    console.log('[clearRoute] Attempting to clear route...'); 
-    if (mapRef.current && prevRouteLayerRef.current) {
-      console.log('[clearRoute] Map and previous route layer ref exist.'); 
-      if (mapRef.current.hasLayer(prevRouteLayerRef.current)) {
-        console.log('[clearRoute] Map has the layer, removing...'); 
-        try { 
-          mapRef.current.removeLayer(prevRouteLayerRef.current);
-          console.log('[clearRoute] Layer removed successfully from map.'); 
-        } catch (e) {
-           console.error('[clearRoute] Error removing layer:', e); 
-        }
+  const clearRoute = () => {
+    // Clear all existing route layers
+    if (routeLayerRef.current && mapRef.current) {
+      if (routeLayerRef.current instanceof L.LayerGroup) {
+        routeLayerRef.current.eachLayer(layer => {
+          if (mapRef.current) mapRef.current.removeLayer(layer);
+        });
       } else {
-          console.log('[clearRoute] Map does NOT have the layer according to hasLayer().'); 
+        mapRef.current.removeLayer(routeLayerRef.current);
+      }
+      routeLayerRef.current = null;
+    }
+    
+    // Also clear the previous route layer if it exists
+    if (prevRouteLayerRef.current && mapRef.current) {
+      if (prevRouteLayerRef.current instanceof L.LayerGroup) {
+        prevRouteLayerRef.current.eachLayer(layer => {
+          if (mapRef.current) mapRef.current.removeLayer(layer);
+        });
+      } else {
+        mapRef.current.removeLayer(prevRouteLayerRef.current);
       }
       prevRouteLayerRef.current = null;
-      console.log('[clearRoute] Previous route layer ref set to null.'); 
     }
-    // Rota bilgisini temizle
-    setRouteInfo(null); 
-    console.log('[clearRoute] Route info state cleared.'); 
-  }, [mapRef, prevRouteLayerRef]); // setRouteInfo bağımlılıklara eklendi mi? React kendi çözer
+    
+    // Reset route info state
+    setRouteInfo(null);
+    setTransitInfo(null);
+    setShowTransitInfo(false);
+  };
   // -----------------------------------------------
 
   const addMarker = async (lat: number, lng: number, isSource: boolean, address?: string) => {
@@ -847,9 +875,17 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   }, [source, destination, mapRef, transportMode, departureTime]);
 
   const getRoute = async (start: Coordinate, end: Coordinate) => {
-    console.log(`[getRoute] Fetching route from ${start.lat},${start.lng} to ${end.lat},${end.lng} via ${transportMode}`);
-    setLoadingRoute(true); 
+    if (!mapRef.current) {
+      console.error('[getRoute] Map not initialized');
+      return;
+    }
+    setLoadingRoute(true);
+    
+    // Always clear previous routes before creating a new one
     clearRoute();
+    
+    // Construct the query URL
+    const apiUrl = `${import.meta.env.VITE_BACKEND_API_URL}/api/route/directions/?origin=${start.lat},${start.lng}&destination=${end.lat},${end.lng}&mode=${transportMode}&departure_time=${encodeURIComponent(departureTime)}`;
     
     try {
       const token = localStorage.getItem('token');
@@ -870,11 +906,34 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       console.log('[getRoute] Route data:', routeData);
 
       if (routeData?.geometry && mapRef.current) { 
-        // Yeni rota katmanını çiz
-        const newRouteLayer = L.geoJSON(routeData.geometry, {
-          style: { color: transportMode === 'transit' ? '#673AB7' : '#4285F4', weight: 5 }
+        // Create outline layer for better visibility
+        const routeOutline = L.geoJSON(routeData.geometry, {
+          style: {
+            color: '#ffffff',
+            weight: 5,
+            opacity: 0.4,
+            lineJoin: 'round',
+            lineCap: 'round'
+          }
         }).addTo(mapRef.current);
-        prevRouteLayerRef.current = newRouteLayer;
+        
+        // Create main route layer with mode-specific styling
+        const newRouteLayer = L.geoJSON(routeData.geometry, {
+          style: {
+            color: transportMode === 'transit' ? '#673AB7' : 
+                   transportMode === 'walking' ? '#34A853' :
+                   transportMode === 'cycling' ? '#EA4335' : '#4285F4',
+            weight: 3,
+            opacity: 0.8,
+            lineJoin: 'round',
+            lineCap: 'round',
+            dashArray: transportMode === 'transit' ? '5, 5' : undefined
+          }
+        }).addTo(mapRef.current);
+        
+        // Group both layers together
+        const routeLayerGroup = L.layerGroup([routeOutline, newRouteLayer]);
+        prevRouteLayerRef.current = routeLayerGroup;
 
         // Rota bilgilerini state'e kaydet
         const routeInfo = {
@@ -1440,48 +1499,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
             className="route-button" 
             disabled={loadingRoute || !source || !destination}
           >
-            {loadingRoute ? 'Calculating...' : 'Get Directions'}
-          </button>
-        </div>
-
-        {routeInfo && (
-          <div>
-            <div className="route-info">
-              {routeInfo.durations[transportMode] !== null && (
-                <span title={`~${Math.round(routeInfo.durations[transportMode]!)} seconds`}> 
-                  🕒 {formatRouteDuration(routeInfo.durations[transportMode])} 
-                </span>
-              )}
-              {routeInfo.distance !== null && (
-                <span style={{ marginLeft: '10px' }}> 
-                  📏 {formatRouteDistance(routeInfo.distance)}
-                </span>
-              )}
-              {routeInfo.durations[transportMode] !== null && departureTime && (
-                <span style={{ marginLeft: '10px' }}> 
-                  🏁 Arr: {(() => {
-                    try {
-                      const departureDate = new Date(departureTime);
-                      departureDate.setSeconds(departureDate.getSeconds() + routeInfo.durations[transportMode]!);
-                      return departureDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-                    } catch (e) {
-                      console.error("Error calculating arrival time:", e);
-                      return '--:--';
-                    }
-                  })()}
-                </span>
-              )}
-            </div>
-            {!isNavigationMode && (
-              <button onClick={startNavigation} className="navigation-button">
-                Start Navigation
-              </button>
-            )}
-          </div>
-        )}
-        <div className="point-of-interest-buttons">
-          <button onClick={fetchPharmacies} className="poi-button">
-            <img src={pharmacyIconUrl} alt="Pharmacy" width="20" height="20"/> Duty Pharmacies
+            <FontAwesomeIcon icon={faRoute} /> {loadingRoute ? 'Calculating...' : 'Get Directions'}
           </button>
         </div>
         
@@ -1491,6 +1509,61 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         />
       </div>
       
+      {/* Floating bottom navigation section */}
+      {routeInfo && (
+        <div className="bottom-navigation-section">
+          <div className="route-info">
+            {routeInfo.durations[transportMode] !== null && (
+              <span title={`~${Math.round(routeInfo.durations[transportMode]!)} seconds`}> 
+                🕒 {formatRouteDuration(routeInfo.durations[transportMode])} 
+              </span>
+            )}
+            {routeInfo.distance !== null && (
+              <span> 
+                📏 {formatRouteDistance(routeInfo.distance)}
+              </span>
+            )}
+            {routeInfo.durations[transportMode] !== null && departureTime && (
+              <span> 
+                🏁 Arr: {(() => {
+                  try {
+                    const departureDate = new Date(departureTime);
+                    departureDate.setSeconds(departureDate.getSeconds() + routeInfo.durations[transportMode]!);
+                    return departureDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+                  } catch (e) {
+                    console.error("Error calculating arrival time:", e);
+                    return '--:--';
+                  }
+                })()}
+              </span>
+            )}
+          </div>
+          {!isNavigationMode && (
+            <button onClick={startNavigation} className="navigation-button">
+              <FontAwesomeIcon icon={faLocationArrow} /> Start Navigation
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Left-side menu */}
+      <LeftSideMenu
+        isLoadingTaxis={isLoadingTaxis}
+        showWifi={showWifi}
+        loadingWifi={loadingWifi}
+        showBicycle={showBicycle}
+        loadingBicycle={loadingBicycle}
+        loadingPharmacies={loadingPharmacies}
+        showPharmacies={showPharmacies}
+        onTaxiClick={fetchTaxiStations}
+        onWifiClick={toggleWifiLayer}
+        onBicycleClick={toggleBicycleLayer}
+        onPharmacyClick={fetchPharmacies}
+      />
+
+      <div id="map" style={{ height: '100%', width: '100%' }} />
+
+      {/* Bottom right controls */}
       <div className="bottom-right-controls">
         <HamburgerMenu 
           isLoggedIn={isLoggedIn} 
@@ -1499,43 +1572,12 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
           onToggle={() => setOpenControl(openControl === 'menu' ? null : 'menu')}
           openDirection="up"
         />
-        <div className="vertical-controls"> 
-          {map && <MapStylesControl 
-                    map={map} 
-                    isOpen={openControl === 'styles'} 
-                    onToggle={() => setOpenControl(openControl === 'styles' ? null : 'styles')} 
-                  />}
-          <div className="poi-menu-toggle-wrapper">
-            <button onClick={() => setOpenControl(openControl === 'poi' ? null : 'poi')} className="poi-menu-toggle-button">
-              <span className="poi-icons">
-                <span className="taxi-text">T</span>
-                <img src={wifiIconUrl} alt="WiFi" width="20" height="20"/>
-                <img src={bicycleIconUrl} alt="Bicycle" width="20" height="20"/>
-              </span>
-              <span>{openControl === 'poi' ? '▲' : '▼'}</span>
-            </button>
-          </div>
-
-          {openControl === 'poi' && (
-            <div className="poi-menu-content">
-              <button onClick={fetchTaxiStations} className={`poi-menu-button ${isLoadingTaxis ? 'loading' : ''}`} title="Find Nearby Taxis" disabled={isLoadingTaxis}>
-                <span className="taxi-text">T</span>
-                <span>Find Taxis</span>
-              </button>
-              <button onClick={toggleWifiLayer} className={`poi-menu-button ${showWifi ? 'active' : ''} ${loadingWifi ? 'loading' : ''}`} title="Toggle WiFi Hotspots" disabled={loadingWifi}>
-                <img src={wifiIconUrl} alt="WiFi" width="20" height="20"/>
-                <span>WiFi Points</span>
-              </button>
-              <button onClick={toggleBicycleLayer} className={`poi-menu-button ${showBicycle ? 'active' : ''} ${loadingBicycle ? 'loading' : ''}`} title="Toggle Bicycle Stations" disabled={loadingBicycle}>
-                <img src={bicycleIconUrl} alt="Bicycle" width="20" height="20"/>
-                <span>Bicycle Stations</span>
-              </button>
-            </div>
-          )}
-        </div>
+        {map && <MapStylesControl 
+          map={map} 
+          isOpen={openControl === 'styles'} 
+          onToggle={() => setOpenControl(openControl === 'styles' ? null : 'styles')} 
+        />}
       </div>
-      
-      <div id="map" style={{ height: '100%', width: '100%' }} />
 
       {/* Navigasyon UI */}
       {showNavigationUI && (
