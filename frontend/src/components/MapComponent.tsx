@@ -1378,7 +1378,6 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         },
         (error) => {
           console.error("Error getting location:", error);
-          toast.error("Could not get your location. Please check your GPS settings.");
         },
         {
           enableHighAccuracy: true,
