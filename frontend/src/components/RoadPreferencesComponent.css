@@ -1,3 +1,36 @@
+.map-container {
+  width: 100%;
+  height: 400px;
+  margin-bottom: 20px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.coordinate-info-box {
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.coordinate-info-box h3 {
+  margin-top: 0;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+}
+
+/* Custom marker styles */
+.custom-start-icon,
+.custom-end-icon {
+  border-radius: 50%;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.4);
+}
+
+/* Add these styles to the existing RoadPreferencesComponent.css */
 .road-preferences-container {
   max-width: 1200px;
   margin: 0 auto;

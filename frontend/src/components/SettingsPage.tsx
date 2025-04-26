@@ -1,14 +1,23 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import './SettingsPage.css';
+import HamburgerMenu from './HamburgerMenu';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.webpack.css';
+import 'leaflet-defaulticon-compatibility';
 
 interface RoadSegment {
-  id: number;
-  osm_id: number;
+  id: number | string;
+  osm_id: number | null;
   name: string;
-  road_type: string;
+  road_type: string | null;
+  geometry?: string | null;
+  lat?: number;
+  lon?: number;
+  bbox?: [number, number, number, number] | null;
 }
 
 interface RoadPreference {
@@ -87,6 +96,19 @@ const getTagEmoji = (tag: string): string => {
   return TAG_EMOJIS[tag.toLowerCase()] || TAG_EMOJIS.other;
 };
 
+// YENİ: Alan Tercihi Veri Arayüzü
+interface UserAreaPreferenceData {
+  id: number;
+  preference_type: 'prefer' | 'avoid';
+  preference_type_display: string;
+  min_lat: string; // DecimalField string olarak dönebilir
+  min_lon: string;
+  max_lat: string;
+  max_lon: string;
+  reason?: string | null;
+  created_at: string;
+}
+
 const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => {
   // User profile state (address kaldırıldı)
   const [username, setUsername] = useState<string>('');
@@ -104,8 +126,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
   const [preferredRoads, setPreferredRoads] = useState<RoadPreference[]>([]);
   const [avoidedRoads, setAvoidedRoads] = useState<RoadPreference[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [selectedRoad, setSelectedRoad] = useState<any | null>(null);
+  const [searchResults, setSearchResults] = useState<RoadSegment[]>([]);
+  const [selectedResult, setSelectedResult] = useState<RoadSegment | null>(null);
   const [preferenceReason, setPreferenceReason] = useState<string>('');
 
   // Preference profiles state
@@ -121,6 +143,25 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
 
   // Active tab state
   const [activeTab, setActiveTab] = useState<string>('profile');
+  const [isHamburgerOpen, setIsHamburgerOpen] = useState(false);
+
+  // --- YENİ HARİTA STATE ve REF'LERİ ---
+  const mapRef = useRef<L.Map | null>(null);
+  const resultMarkerRef = useRef<L.Marker | null>(null); // Arama sonucu için
+  const geometryLayerRef = useRef<L.GeoJSON | null>(null); // Yol geometrisi için
+  
+  // --- YENİ ALAN SEÇİMİ STATE ve REF'LERİ ---
+  const [selectingArea, setSelectingArea] = useState(false); // Alan seçimi modunda mıyız?
+  const [pointA, setPointA] = useState<L.LatLng | null>(null);
+  const [pointB, setPointB] = useState<L.LatLng | null>(null);
+  const markerARef = useRef<L.Marker | null>(null);
+  const markerBRef = useRef<L.Marker | null>(null);
+  const rectangleLayerRef = useRef<L.Rectangle | null>(null); // Dikdörtgen katmanı için ref
+  // --- BİTTİ: YENİ ALAN SEÇİMİ STATE ve REF'LERİ ---
+
+  // --- YENİ ALAN TERCİHLERİ STATE'İ ---
+  const [areaPreferences, setAreaPreferences] = useState<UserAreaPreferenceData[]>([]);
+  // --- BİTTİ: YENİ ALAN TERCİHLERİ STATE'İ ---
 
   // Fetch user data (address state update kaldırıldı)
   const fetchUserProfile = useCallback(async () => {
@@ -244,14 +285,171 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
     }
   }, []);
 
-  // Component mount edildiğinde verileri çek
+  // YENİ: Alan Tercihlerini Çekme Fonksiyonu
+  const fetchAreaPreferences = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return; // Token yoksa işlem yapma
+    try {
+      console.log("Fetching area preferences...");
+      const response = await axios.get(
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/area-preferences/`,
+        { headers: { Authorization: `Token ${token}` } }
+      );
+      setAreaPreferences(response.data as UserAreaPreferenceData[]);
+      console.log("Area preferences fetched:", response.data);
+    } catch (error) {
+      console.error('Error fetching area preferences:', error);
+      toast.error('Failed to load area preferences');
+    }
+  }, []);
+
+  // Component mount edildiğinde verileri çek (fetchAreaPreferences eklendi)
   useEffect(() => {
     console.log('[useEffect Mount] Fetching initial data...');
     fetchUserProfile();
     fetchPreferences();
     fetchProfiles();
     fetchFavorites();
-  }, [fetchUserProfile, fetchPreferences, fetchProfiles, fetchFavorites]);
+    fetchAreaPreferences(); // Yeni fonksiyonu çağır
+  }, [fetchUserProfile, fetchPreferences, fetchProfiles, fetchFavorites, fetchAreaPreferences]); // Bağımlılıklara ekle
+
+  // --- GÜNCELLENMİŞ HARİTA INITIALIZATION (Geolocation ve Zoom eklendi) ---
+  useEffect(() => {
+    let mapInstance: L.Map | null = null; // Instance'ı dışarıda tanımla
+    
+    if (activeTab === 'road-preferences' && !mapRef.current) {
+      console.log("Initializing map...");
+      mapInstance = L.map('settings-map-container');
+      mapRef.current = mapInstance; // Ref'i hemen ata
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(mapInstance);
+
+      // --- BAŞLANGIÇ KONUMU ve ZOOM --- 
+      const setDefaultView = () => {
+          console.log("Setting default view (Ankara center)");
+          mapInstance?.setView([39.9334, 32.8597], 11);
+      };
+      
+      if (navigator.geolocation) {
+          console.log("Requesting user location...");
+          navigator.geolocation.getCurrentPosition(
+              (position) => {
+                  const userLatLng: L.LatLngTuple = [position.coords.latitude, position.coords.longitude];
+                  console.log("User location obtained:", userLatLng);
+                  mapInstance?.setView(userLatLng, 14); // Kullanıcı konumuna daha yakın zoom yap
+              },
+              (error) => {
+                  console.warn(`Geolocation error: ${error.message}. Falling back to default view.`);
+                  setDefaultView();
+              },
+              { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+          );
+      } else {
+          console.warn("Geolocation not supported by browser. Falling back to default view.");
+          setDefaultView();
+      }
+      // --- BİTTİ: BAŞLANGIÇ KONUMU ve ZOOM --- 
+
+      // Harita Tıklama Listener'ı (Zoom eklendi)
+      const handleMapClick = (e: L.LeafletMouseEvent) => {
+        if (selectingArea && mapRef.current) { // mapRef.current kontrolü eklendi
+          const clickedLatLng = e.latlng;
+          const currentZoom = mapRef.current.getZoom();
+          const targetZoom = Math.max(currentZoom, 15); // En az 15 zoom yap
+
+          if (!pointA) {
+            setPointA(clickedLatLng);
+            if (markerARef.current) mapRef.current.removeLayer(markerARef.current);
+            console.log("Adding marker A");
+            markerARef.current = L.marker(clickedLatLng, {draggable: true})
+              .addTo(mapRef.current) // mapRef.current kullanıldı
+              .bindPopup("Alan Başlangıç Noktası A")
+              .on('dragend', (event) => setPointA(event.target.getLatLng()));
+            mapRef.current.flyTo(clickedLatLng, targetZoom); // Noktaya zoom yap
+            toast.info("Alan bitiş noktasını (B) seçin.");
+          } 
+          else if (!pointB) {
+            setPointB(clickedLatLng);
+            if (markerBRef.current) mapRef.current.removeLayer(markerBRef.current);
+             console.log("Adding marker B");
+            markerBRef.current = L.marker(clickedLatLng, {draggable: true})
+              .addTo(mapRef.current) // mapRef.current kullanıldı
+              .bindPopup("Alan Bitiş Noktası B")
+              .on('dragend', (event) => setPointB(event.target.getLatLng()));
+            mapRef.current.flyTo(clickedLatLng, targetZoom); // Noktaya zoom yap
+            setSelectingArea(false); 
+            toast.success("Alan seçimi tamamlandı. Aşağıdan tercihinizi belirtebilirsiniz.");
+          } 
+        }
+      };
+      mapInstance.on('click', handleMapClick);
+      
+      return () => {
+        console.log("Cleaning up map...");
+        if (mapRef.current) {
+          mapRef.current.off('click', handleMapClick);
+          mapRef.current.remove();
+          mapRef.current = null;
+        }
+      };
+    } else if (activeTab !== 'road-preferences' && mapRef.current) {
+      // Sekme değiştiğinde haritayı kaldır (opsiyonel, performansa göre)
+      // mapRef.current.remove();
+      // mapRef.current = null;
+    }
+  }, [activeTab, selectingArea, pointA, pointB]); // Bağımlılıklar korundu
+  // --- BİTTİ: GÜNCELLENMİŞ HARİTA INITIALIZATION ---
+
+  // Seçilen alanı gösteren dikdörtgeni çizen fonksiyon
+  const drawSelectionRectangle = useCallback(() => {
+    if (!pointA || !pointB || !mapRef.current) return;
+
+    // Önceki dikdörtgeni temizle
+    if (rectangleLayerRef.current) {
+      mapRef.current.removeLayer(rectangleLayerRef.current);
+      rectangleLayerRef.current = null;
+    }
+
+    // Yeni dikdörtgeni çiz
+    const bounds = L.latLngBounds(pointA, pointB);
+    rectangleLayerRef.current = L.rectangle(bounds, { color: "#ff7800", weight: 1, fillOpacity: 0.1 }).addTo(mapRef.current);
+    console.log("Selection rectangle drawn with bounds:", bounds);
+  }, [pointA, pointB]);
+
+  // Seçilen alan işaretçilerini ve dikdörtgeni temizleyen fonksiyon
+  const clearAreaSelectionVisuals = useCallback(() => {
+    setPointA(null);
+    setPointB(null);
+    setSelectingArea(false);
+    if (markerARef.current) mapRef.current?.removeLayer(markerARef.current);
+    if (markerBRef.current) mapRef.current?.removeLayer(markerBRef.current);
+    if (rectangleLayerRef.current) mapRef.current?.removeLayer(rectangleLayerRef.current);
+    markerARef.current = null;
+    markerBRef.current = null;
+    rectangleLayerRef.current = null;
+    console.log("Area selection visuals cleared.");
+  }, [mapRef]); // mapRef'e bağımlı
+
+  // Harita initialize useEffect'i (içerik aynı kalır)
+  useEffect(() => {
+    // ... (içerik aynı)
+  }, [activeTab, selectingArea, pointA, pointB]);
+
+  // --- YENİ useEffect: Noktalar değiştiğinde veya seçim modu bittiğinde dikdörtgeni çiz/kaldır ---
+  useEffect(() => {
+    if (pointA && pointB && !selectingArea) {
+      drawSelectionRectangle();
+    } else {
+      // Eğer noktalar eksikse veya hala seçim modundaysak, dikdörtgeni kaldır
+      if (rectangleLayerRef.current && mapRef.current) {
+        mapRef.current.removeLayer(rectangleLayerRef.current);
+        rectangleLayerRef.current = null;
+      }
+    }
+  }, [pointA, pointB, selectingArea, drawSelectionRectangle]);
+  // --- BİTTİ: YENİ useEffect ---
 
   // Update password
   const handleUpdatePassword = async (e: React.FormEvent) => {
@@ -293,22 +491,21 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
       try {
         console.log('Searching with query:', query);
         const response = await axios.get(
-          `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/road-segments/search/`,
+          `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/geocoding/search/`,
           {
             params: { q: query },
-            headers: { Authorization: `Token ${localStorage.getItem("token")}` },
           }
         );
         console.log('Search response:', response.data);
         if (Array.isArray(response.data)) {
-          setSearchResults(response.data);
+          setSearchResults(response.data as RoadSegment[]);
         } else {
           console.error('Unexpected response format:', response.data);
           setSearchResults([]);
         }
       } catch (error) {
-        console.error('Error searching roads:', error);
-        toast.error('Failed to search for roads');
+        console.error('Error searching locations:', error);
+        toast.error('Failed to search for locations');
         setSearchResults([]);
       }
     } else {
@@ -325,15 +522,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
     try {
       console.log('Search button clicked with query:', searchQuery);
       const response = await axios.get(
-        `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/road-segments/search/`,
+        `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/geocoding/search/`,
         {
           params: { q: searchQuery },
-          headers: { Authorization: `Token ${localStorage.getItem("token")}` },
         }
       );
       console.log('Search button response:', response.data);
       if (Array.isArray(response.data)) {
-        setSearchResults(response.data);
+        setSearchResults(response.data as RoadSegment[]);
         if (response.data.length === 0) {
           toast.info('No results found');
         }
@@ -343,48 +539,172 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
         toast.error('API response is not in expected format');
       }
     } catch (error) {
-      console.error('Error searching roads:', error);
-      toast.error('Failed to search for roads');
+      console.error('Error searching locations:', error);
+      toast.error('Failed to search for locations');
       setSearchResults([]);
     }
   };
 
-  // Add road preference
-  const handleAddPreference = async (roadSegmentId: number, type: "preferred" | "avoided") => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-    const headers = { Authorization: `Token ${token}` };
+  // --- GÜNCELLENMİŞ HARİTA FONKSİYONLARI ---
+  const clearMapLayers = useCallback(() => {
+    if (!mapRef.current) return;
+    if (resultMarkerRef.current) {
+      mapRef.current.removeLayer(resultMarkerRef.current);
+      resultMarkerRef.current = null;
+    }
+    if (geometryLayerRef.current) {
+        mapRef.current.removeLayer(geometryLayerRef.current);
+        geometryLayerRef.current = null;
+    }
+    if (rectangleLayerRef.current) { // Dikdörtgeni de temizle
+        mapRef.current.removeLayer(rectangleLayerRef.current);
+        rectangleLayerRef.current = null;
+    }
+  }, []);
 
-    try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/preferences/`,
-        {
-          road_segment: roadSegmentId,
-          preference_type: type,
-          reason: preferenceReason
-        },
-        { headers }
-      );
-
-      // Update local state
-      if (type === 'preferred') {
-        setPreferredRoads([...preferredRoads, response.data as RoadPreference]);
+  // Sadece marker ve bbox gösteren fonksiyon (fallback)
+  const displaySelectedResultMarker = useCallback((result: RoadSegment) => {
+    if (!mapRef.current || !result.lat || !result.lon) return;
+    clearMapLayers(); 
+    const position: L.LatLngTuple = [result.lat, result.lon];
+    console.log('[displaySelectedResultMarker] Setting marker at:', position);
+    resultMarkerRef.current = L.marker(position)
+      .addTo(mapRef.current)
+      .bindPopup(result.name)
+      .openPopup();
+    if (result.bbox) {
+      const bounds = L.latLngBounds([result.bbox[0], result.bbox[2]], [result.bbox[1], result.bbox[3]]);
+      console.log('[displaySelectedResultMarker] Fitting bounds:', bounds);
+      const mapContainer = mapRef.current.getContainer();
+      if (mapContainer.offsetParent !== null) {
+        mapRef.current.flyToBounds(bounds, { padding: [50, 50], maxZoom: 16 });
       } else {
-        setAvoidedRoads([...avoidedRoads, response.data as RoadPreference]);
+        mapRef.current.setView(position, 15);
       }
+    } else {
+      console.log('[displaySelectedResultMarker] Flying to position (no bbox):', position);
+      mapRef.current.flyTo(position, 15);
+    }
+    setTimeout(() => {
+      if (mapRef.current) {
+        mapRef.current.invalidateSize();
+      }
+    }, 100);
+  }, [clearMapLayers]);
 
-      setPreferenceReason("");
-      setSelectedRoad(null);
-      setSearchResults([]);
+  // YENİ: GeoJSON geometrisini haritada çizen fonksiyon
+  const displaySegmentGeometry = useCallback((geometryData: any, name: string) => {
+      if (!mapRef.current) return;
+      clearMapLayers();
+      console.log('[displaySegmentGeometry] Displaying GeoJSON:', geometryData);
       
-      toast.success(`Road added to ${type} roads`);
-    } catch (error) {
-      console.error('Error adding preference:', error);
-      toast.error('Failed to add road preference');
+      try {
+          // L.geoJSON GeoJSON nesnesini alır
+          geometryLayerRef.current = L.geoJSON(geometryData, {
+              style: {
+                  color: "#ff7800", // Çizgi rengi
+                  weight: 5,
+                  opacity: 0.8
+              }
+          }).addTo(mapRef.current);
+          
+          // Haritayı çizilen geometriye sığdır
+          const bounds = geometryLayerRef.current.getBounds();
+          if (bounds.isValid()) {
+              mapRef.current.flyToBounds(bounds, { padding: [50, 50] });
+          }
+          
+          // Opsiyonel: Geometrinin ortasına popup ekle
+          // geometryLayerRef.current.bindPopup(name).openPopup(); 
+
+      } catch (error) {
+          console.error("Error displaying GeoJSON geometry:", error);
+          toast.error("Failed to display road geometry.");
+          // Hata durumunda marker göstermeye geri dönülebilir
+      }
+      
+      setTimeout(() => {
+        if (mapRef.current) {
+            mapRef.current.invalidateSize();
+        }
+      }, 100);
+  }, [clearMapLayers]);
+
+  // --- GÜNCELLENMİŞ: handleResultClick --- 
+  const handleResultClick = async (result: RoadSegment) => {
+    console.log('[handleResultClick] Result clicked:', result);
+    setSelectedResult(result);
+    clearMapLayers(); // Önce haritayı temizle
+
+    if (result.osm_id) {
+        console.log(`[handleResultClick] Found osm_id: ${result.osm_id}. Fetching geometry...`);
+        try {
+            const geometryResponse = await axios.get(
+                `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/road-segments/geometry/${result.osm_id}/`
+            );
+            
+            if (geometryResponse.data && geometryResponse.data.type) { // GeoJSON verisi döndü mü?
+                console.log('[handleResultClick] Geometry fetched successfully:', geometryResponse.data);
+                displaySegmentGeometry(geometryResponse.data, result.name); // Geometriyi çiz
+            } else {
+                console.warn('[handleResultClick] Geometry endpoint returned invalid data. Falling back to marker.');
+                displaySelectedResultMarker(result); // Geometri yoksa marker göster
+            }
+        } catch (error: any) {
+            if (error.response && error.response.status === 404) {
+                console.warn(`[handleResultClick] Geometry not found in DB for osm_id: ${result.osm_id}. Falling back to marker.`);
+            } else {
+                console.error('[handleResultClick] Error fetching geometry:', error);
+                toast.error('Failed to fetch road geometry.');
+            }
+            displaySelectedResultMarker(result); // Hata durumunda marker göster
+        }
+    } else {
+        console.warn('[handleResultClick] No osm_id found in result. Displaying marker.');
+        displaySelectedResultMarker(result); // osm_id yoksa marker göster
     }
   };
+  // --- BİTTİ: GÜNCELLENMİŞ: handleResultClick --- 
 
-  // Remove road preference
+  // --- handleAddPreference ve handleDeletePreference fonksiyonları geri eklendi ---
+  const handleAddPreference = async (roadSegmentId: number | string, type: "preferred" | "avoided") => {
+      if (typeof roadSegmentId !== 'number') {
+          toast.error("Cannot add preference for a geocoding result.");
+          return;
+      }
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      const headers = { Authorization: `Token ${token}` };
+  
+      try {
+        const response = await axios.post(
+          `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/preferences/`,
+          {
+            road_segment: roadSegmentId,
+            preference_type: type,
+            reason: preferenceReason
+          },
+          { headers }
+        );
+  
+        if (type === 'preferred') {
+          setPreferredRoads([...preferredRoads, response.data as RoadPreference]);
+        } else {
+          setAvoidedRoads([...avoidedRoads, response.data as RoadPreference]);
+        }
+  
+        setPreferenceReason("");
+        setSelectedResult(null); 
+        setSearchResults([]); 
+        clearMapLayers(); 
+        
+        toast.success(`Road added to ${type} list`);
+      } catch (error) {
+        console.error('Error adding preference:', error);
+        toast.error('Failed to add road preference');
+      }
+    };
+
   const handleDeletePreference = async (preferenceId: number) => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -395,7 +715,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
         { headers }
       );
 
-      // Update local state
       const updatedPreferredRoads = preferredRoads.filter(road => road.id !== preferenceId);
       const updatedAvoidedRoads = avoidedRoads.filter(road => road.id !== preferenceId);
       setPreferredRoads(updatedPreferredRoads);
@@ -405,6 +724,101 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
     } catch (error) {
       console.error('Error removing preference:', error);
       toast.error('Failed to remove road preference');
+    }
+  };
+  // --- BİTTİ: handleAddPreference ve handleDeletePreference fonksiyonları geri eklendi ---
+
+  // --- YENİ: Alan tercih işlemleri için GÜNCELLENMİŞ fonksiyonlar ---
+  const handlePreferArea = async () => {
+    if (!pointA || !pointB) return;
+    const token = localStorage.getItem("token");
+    if (!token) {
+        toast.error("Authentication required.");
+        return;
+    }
+
+    const bounds = L.latLngBounds(pointA, pointB);
+    const areaData = {
+        preference_type: 'prefer',
+        min_lat: bounds.getSouthWest().lat.toFixed(7),
+        min_lon: bounds.getSouthWest().lng.toFixed(7),
+        max_lat: bounds.getNorthEast().lat.toFixed(7),
+        max_lon: bounds.getNorthEast().lng.toFixed(7),
+    };
+
+    console.log("Sending Prefer Area request (coords as string):", areaData);
+
+    try {
+      const response = await axios.post(
+          `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/area-preferences/`,
+          areaData,
+          { headers: { Authorization: `Token ${token}` } }
+      );
+      console.log("Prefer area response:", response.data);
+      toast.success("Area marked as preferred!");
+      clearAreaSelectionVisuals(); // Seçimi temizle
+      // TODO: Kayıtlı alanlar listesini güncelle (fetchAreaPreferences gibi bir fonksiyon eklenebilir)
+    } catch (error) {
+        console.error("Error preferring area:", error);
+        toast.error("Failed to mark area as preferred.");
+    }
+  };
+
+  const handleAvoidArea = async () => {
+    if (!pointA || !pointB) return;
+    const token = localStorage.getItem("token");
+    if (!token) {
+        toast.error("Authentication required.");
+        return;
+    }
+
+    const bounds = L.latLngBounds(pointA, pointB);
+    const areaData = {
+        preference_type: 'avoid', 
+        min_lat: bounds.getSouthWest().lat.toFixed(7),
+        min_lon: bounds.getSouthWest().lng.toFixed(7),
+        max_lat: bounds.getNorthEast().lat.toFixed(7),
+        max_lon: bounds.getNorthEast().lng.toFixed(7),
+    };
+
+    console.log("Sending Avoid Area request (coords as string):", areaData);
+    
+    try {
+        const response = await axios.post(
+            `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/area-preferences/`,
+            areaData,
+            { headers: { Authorization: `Token ${token}` } }
+        );
+        console.log("Avoid area response:", response.data);
+        toast.success("Area marked as avoided!");
+        clearAreaSelectionVisuals(); // Seçimi temizle
+        // TODO: Kayıtlı alanlar listesini güncelle
+      } catch (error) {
+          console.error("Error avoiding area:", error);
+          toast.error("Failed to mark area as avoided.");
+      }
+  };
+  // --- BİTTİ: Alan tercih işlemleri için GÜNCELLENMİŞ fonksiyonlar ---
+
+  // YENİ: Alan Tercihini Silme Fonksiyonu
+  const handleDeleteAreaPreference = async (preferenceId: number) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+        toast.error("Authentication required.");
+        return;
+    }
+    console.log(`Attempting to delete area preference with ID: ${preferenceId}`);
+    try {
+        await axios.delete(
+            `${import.meta.env.VITE_BACKEND_API_URL}/api/routing/area-preferences/${preferenceId}/`,
+            { headers: { Authorization: `Token ${token}` } }
+        );
+        // State'i güncelle: Silinen tercihi listeden çıkar
+        setAreaPreferences(prevPrefs => prevPrefs.filter(pref => pref.id !== preferenceId));
+        toast.success("Area preference deleted successfully!");
+    } catch (error) {
+        console.error("Error deleting area preference:", error);
+        toast.error("Failed to delete area preference.");
     }
   };
 
@@ -727,72 +1141,112 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
         
         {activeTab === 'road-preferences' && (
           <div className="settings-section">
-            <h2>Road Preferences</h2>
+            <h2>Road Preferences & Location Search</h2>
             
-            <div className="search-section">
-              <h3>Search for Roads</h3>
-              <div className="search-box">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={handleSearchChange}
-                  placeholder="Enter road name (min 3 characters)"
-                  className="search-input"
-                />
-                <button 
-                  onClick={handleSearchClick}
-                  disabled={searchQuery.length < 3}
-                  className="search-button"
-                >
-                  Search
-                </button>
-              </div>
-              
-              {searchResults.length > 0 && (
-                <div className="search-results">
-                  <h4>Search Results</h4>
-                  <ul className="results-list">
-                    {searchResults.map(road => (
-                      <li 
-                        key={road.id} 
-                        className={selectedRoad?.id === road.id ? 'selected' : ''}
-                        onClick={() => setSelectedRoad(road)}
-                      >
-                        <span className="road-name">{road.name}</span>
-                        <span className="road-type">{road.road_type}</span>
-                      </li>
-                    ))}
-                  </ul>
+            <div className="search-and-map-container">
+                <div className="search-controls">
+                    <h3>Search for Location</h3>
+                    <div className="search-box">
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={handleSearchChange}
+                          placeholder="Enter place name, address... (min 3)"
+                          className="search-input"
+                        />
+                        <button 
+                          onClick={handleSearchClick}
+                          disabled={searchQuery.length < 3}
+                          className="search-button"
+                        >
+                          Search
+                        </button>
+                    </div>
+                  
+                    {searchResults.length > 0 && (
+                      <div className="search-results">
+                        <h4>Search Results</h4>
+                        <ul className="results-list">
+                          {searchResults.map(road => (
+                            <li 
+                              key={road.id} 
+                              className={selectedResult?.id === road.id ? 'selected' : ''}
+                              onClick={() => handleResultClick(road)}
+                            >
+                              <span className="road-name">{road.name}</span>
+                              {road.road_type && <span className="road-type">({road.road_type})</span>} 
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    
+                    {selectedResult && (
+                         <div className="selected-result-info">
+                             <h4>Selected: {selectedResult.name}</h4>
+                             <p>Coordinates: {selectedResult.lat?.toFixed(6)}, {selectedResult.lon?.toFixed(6)}</p>
+                         </div>
+                    )}
                 </div>
-              )}
-              
-              {selectedRoad && (
-                <div className="preference-form">
-                  <h4>Add Preference for {selectedRoad.name}</h4>
-                  <textarea
-                    value={preferenceReason}
-                    onChange={(e) => setPreferenceReason(e.target.value)}
-                    placeholder="Reason for preference (optional)"
-                    className="preference-reason"
-                  />
-                  <div className="preference-buttons">
-                    <button 
-                      onClick={() => handleAddPreference(selectedRoad.id, 'preferred')}
-                      className="prefer-button"
-                    >
-                      Prefer This Road
-                    </button>
-                    <button 
-                      onClick={() => handleAddPreference(selectedRoad.id, 'avoided')}
-                      className="avoid-button"
-                    >
-                      Avoid This Road
-                    </button>
-                  </div>
+                
+                <div className="map-display-area">
+                     {/* Alan Seçimi Başlatma Butonu */} 
+                     <div className="area-selection-controls">
+                         <button 
+                             onClick={() => {
+                                 setSelectingArea(true);
+                                 // Önceki seçimleri ve markerları temizle
+                                 setPointA(null);
+                                 setPointB(null);
+                                 if (markerARef.current) mapRef.current?.removeLayer(markerARef.current);
+                                 if (markerBRef.current) mapRef.current?.removeLayer(markerBRef.current);
+                                 markerARef.current = null;
+                                 markerBRef.current = null;
+                                 clearMapLayers(); // Arama sonucu veya geometriyi de temizle
+                                 toast.info("Haritada alan başlangıç noktasını (A) seçin.");
+                             }}
+                             disabled={selectingArea} // Seçim modundayken disable
+                             className="select-area-button"
+                         >
+                             {selectingArea ? "Selecting... (Click map for Point A)" : "Select Area on Map"}
+                         </button>
+                         {/* Seçim iptal butonu (opsiyonel) */} 
+                         {selectingArea && (
+                            <button onClick={() => setSelectingArea(false)}>Cancel Selection</button>
+                         )}
+                     </div>
+                     
+                     <div id="settings-map-container" style={{ height: '400px', width: '100%' }}></div>
+                     
+                     {/* Alan Tercih Butonları (A ve B seçildiğinde görünür) */} 
+                     {pointA && pointB && !selectingArea && (
+                         <div className="area-preference-buttons">
+                             <h4>Selected Area Preferences</h4>
+                             <p>Define preference for the area between Point A and Point B.</p>
+                             <button 
+                                 onClick={handlePreferArea}
+                                 className="prefer-area-button"
+                             >
+                                 Prefer This Area
+                             </button>
+                             <button 
+                                 onClick={handleAvoidArea}
+                                 className="avoid-area-button"
+                             >
+                                 Avoid This Area
+                             </button>
+                             {/* Temizleme butonu (yeni fonksiyonu kullanacak) */} 
+                             <button 
+                                 onClick={clearAreaSelectionVisuals}
+                                 className="clear-selection-button"
+                              >
+                                  Clear Area Selection
+                              </button>
+                         </div>
+                     )}
                 </div>
-              )}
             </div>
-            
+
             <div className="current-preferences">
               <div className="preferred-roads">
                 <h3>Preferred Roads</h3>
@@ -841,6 +1295,37 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ isLoggedIn, onLogout }) => 
                   </ul>
                 )}
               </div>
+            </div>
+            
+            <div className="area-preferences-section settings-section">
+                <h2>Preferred/Avoided Areas</h2>
+                {areaPreferences.length === 0 ? (
+                    <p>You haven't defined any preferred or avoided areas yet.</p>
+                ) : (
+                    <ul className="area-preference-list preference-list">
+                        {areaPreferences.map(areaPref => (
+                            <li key={areaPref.id} className={`area-pref-${areaPref.preference_type}`}> 
+                                <div className="preference-info"> 
+                                    <span className="area-type"> 
+                                        {areaPref.preference_type_display}
+                                    </span>
+                                    <span className="area-coords">
+                                        Bounds: ({parseFloat(areaPref.min_lat).toFixed(4)}, {parseFloat(areaPref.min_lon).toFixed(4)}) to 
+                                        ({parseFloat(areaPref.max_lat).toFixed(4)}, {parseFloat(areaPref.max_lon).toFixed(4)})
+                                    </span>
+                                    {areaPref.reason && <span className="reason">{areaPref.reason}</span>}
+                                    <span className="created-at">Saved: {formatDate(areaPref.created_at)}</span>
+                                </div>
+                                <button 
+                                    onClick={() => handleDeleteAreaPreference(areaPref.id)}
+                                    className="remove-button"
+                                >
+                                    Delete Area
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </div>
             
             <div className="preference-profiles">

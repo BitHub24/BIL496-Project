@@ -8,13 +8,15 @@ from django.conf import settings
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from datetime import datetime
 from users.models import UserProfile
-from routing.models import UserRoadPreference, RoutePreferenceProfile
+from routing.models import UserRoadPreference, RoutePreferenceProfile, UserAreaPreference
 from django.utils import timezone
 import json
 import logging
 import os # Dosya yolu için eklendi
 import time # Zaman ölçümü için eklendi
 import math # Matematik işlemleri için eklendi
+from django.contrib.gis.geos import Point # Koordinat kontrolü için eklendi (GeoDjango gerekmez)
+from decimal import Decimal # Decimal ile karşılaştırma için eklendi
 
 # Gerekli olabilecek yeni importlar (Placeholder)
 import networkx as nx # networkx import edildi
@@ -160,6 +162,12 @@ class DirectionsView(APIView):
         start_node = None
         end_node = None
         graph = None
+        user = request.user
+        user_profile = None
+        prefer_multiplier = 1.0 # Varsayılan
+        avoid_multiplier = 1.0  # Varsayılan
+        area_preferences = [] # Alan tercihleri listesi
+        road_preferences = {} # Yol ID'sine göre tercih tipi (hızlı erişim için dict)
         
         try:
             # Extract coordinates from request
@@ -184,6 +192,34 @@ class DirectionsView(APIView):
 
             logger.info(f"Route requested from {start_coords} to {end_coords} via {initial_transport_mode}")
 
+            # Oturum açmış kullanıcılar için tercihleri yükle
+            if user.is_authenticated:
+                try:
+                    user_profile = UserProfile.objects.get(user=user)
+                    # Varsayılan profili veya seçili profili al (şimdilik varsayılan)
+                    profile = RoutePreferenceProfile.objects.filter(user=user_profile, is_default=True).first()
+                    if profile:
+                        prefer_multiplier = profile.prefer_multiplier
+                        avoid_multiplier = profile.avoid_multiplier
+                        logger.info(f"User profile found: {user.username}, Multipliers: Prefer={prefer_multiplier}, Avoid={avoid_multiplier}")
+                    else:
+                         logger.warning(f"Default profile not found for user: {user.username}")
+
+                    # Alan Tercihlerini Yükle
+                    area_preferences = list(UserAreaPreference.objects.filter(user=user))
+                    logger.info(f"Loaded {len(area_preferences)} area preferences for user: {user.username}")
+                    
+                    # Yol Tercihlerini Yükle (Dict olarak)
+                    prefs = UserRoadPreference.objects.filter(user=user_profile).select_related('road_segment')
+                    for pref in prefs:
+                        road_preferences[pref.road_segment.osm_id] = pref.preference_type
+                    logger.info(f"Loaded {len(road_preferences)} road preferences for user: {user.username}")
+
+                except UserProfile.DoesNotExist:
+                    logger.warning(f"UserProfile not found for authenticated user: {user.username}")
+                except Exception as e:
+                     logger.exception(f"Error loading user preferences: {e}")
+
             # --- A* Rota Hesaplama Mantığı --- 
             # 1. Yol ağını yükle
             graph = load_graph_once() 
@@ -201,9 +237,76 @@ class DirectionsView(APIView):
             
             for mode in relevant_modes:
                 logger.info(f"Calculating duration for mode: {mode}")
-                # 3. Ağırlık fonksiyonu (moda göre)
-                def weight_wrapper(u, v, edge_attr):
-                    return calculate_travel_time(u, v, edge_attr[0], mode=mode)
+                # 3. Güncellenmiş Ağırlık Fonksiyonu
+                def weight_wrapper(u, v, edge_attr_dict):
+                    edge_data = edge_attr_dict[0] # Genellikle ilk kenar verisi kullanılır
+                    base_travel_time = calculate_travel_time(u, v, edge_data, mode=mode)
+                    
+                    # Başlangıçta maliyet sonsuzsa, daha fazla hesaplama yapma
+                    if base_travel_time == float('inf'):
+                        return float('inf')
+
+                    multiplier = 1.0
+                    osm_id = edge_data.get('osmid')
+                    
+                    # --- Alan Tercihlerini Uygula --- 
+                    # Kenarın orta noktasının koordinatlarını al (yaklaşık)
+                    # Daha doğru bir yöntem, kenarın geometrisini kontrol etmek olurdu (GeoDjango ile)
+                    u_data = graph.nodes[u]
+                    v_data = graph.nodes[v]
+                    edge_mid_lat = Decimal((u_data['y'] + v_data['y']) / 2)
+                    edge_mid_lon = Decimal((u_data['x'] + v_data['x']) / 2)
+                    # logger.debug(f"Edge ({u}-{v}): Midpoint ({edge_mid_lat:.6f}, {edge_mid_lon:.6f})") # Daha detaylı loglama için açılabilir
+
+                    for area_pref in area_preferences:
+                        # Koordinatlar alanın içinde mi kontrol et
+                        if (area_pref.min_lat <= edge_mid_lat <= area_pref.max_lat and
+                            area_pref.min_lon <= edge_mid_lon <= area_pref.max_lon):
+                            if area_pref.preference_type == 'avoid':
+                                multiplier *= avoid_multiplier
+                                # logger.info(f"--> Edge ({u}-{v}) MIDPOINT ({edge_mid_lat:.6f}, {edge_mid_lon:.6f}) is inside AVOID area {area_pref.id}. Multiplier applied: {avoid_multiplier:.2f}. New total multiplier: {multiplier:.2f}") # Loglama kaldırıldı
+                                # logger.debug(f"Edge ({u}-{v}) in AVOID area {area_pref.id}, multiplier now: {multiplier}")
+                                break # İlk eşleşen alana göre işlem yap (veya en kötü durumu al?)
+                            elif area_pref.preference_type == 'prefer':
+                                multiplier *= prefer_multiplier
+                                # logger.info(f"--> Edge ({u}-{v}) MIDPOINT ({edge_mid_lat:.6f}, {edge_mid_lon:.6f}) is inside PREFER area {area_pref.id}. Multiplier applied: {prefer_multiplier:.2f}. New total multiplier: {multiplier:.2f}") # Loglama kaldırıldı
+                                # logger.debug(f"Edge ({u}-{v}) in PREFER area {area_pref.id}, multiplier now: {multiplier}")
+                                break # İlk eşleşen alana göre işlem yap
+                    # --------------------------------
+                    
+                    # --- Yol Tercihlerini Uygula ---
+                    current_osm_id = edge_data.get('osmid')
+                    preference_applied = False # Bu kenar için tercih uygulandı mı?
+
+                    if isinstance(current_osm_id, list):
+                        # Eğer osm_id bir listeyse, her birini kontrol et
+                        for single_osm_id in current_osm_id:
+                            if single_osm_id in road_preferences:
+                                pref_type = road_preferences[single_osm_id]
+                                if pref_type == 'avoid':
+                                    multiplier *= avoid_multiplier 
+                                    # logger.debug(f"Edge osm_id {single_osm_id} (in list) is AVOIDED, multiplier now: {multiplier}")
+                                elif pref_type == 'prefer':
+                                     multiplier *= prefer_multiplier
+                                    # logger.debug(f"Edge osm_id {single_osm_id} (in list) is PREFERRED, multiplier now: {multiplier}")
+                                preference_applied = True
+                                break # Listeden ilk eşleşen tercihi uygula ve çık
+                    elif current_osm_id is not None:
+                         # Eğer osm_id tek bir değerse (int veya str)
+                         if current_osm_id in road_preferences:
+                            pref_type = road_preferences[current_osm_id]
+                            if pref_type == 'avoid':
+                                multiplier *= avoid_multiplier
+                                # logger.debug(f"Edge osm_id {current_osm_id} is AVOIDED, multiplier now: {multiplier}")
+                            elif pref_type == 'prefer':
+                                 multiplier *= prefer_multiplier
+                                # logger.debug(f"Edge osm_id {current_osm_id} is PREFERRED, multiplier now: {multiplier}")
+                            preference_applied = True
+                    # -------------------------------
+
+                    final_cost = base_travel_time * multiplier
+                    # logger.debug(f"Edge ({u}-{v}) BaseTime: {base_travel_time:.2f}, Multiplier: {multiplier:.2f}, FinalCost: {final_cost:.2f}")
+                    return final_cost
                 
                 # 4. Heuristic fonksiyonu (moda göre)
                 def heuristic_wrapper(u, v):
