@@ -414,84 +414,114 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   };
   // ----------------------------------------------------------------
 
-  const addPoiMarkers = (points: PointOfInterest[], icon: L.Icon | L.DivIcon, titleKey: keyof PointOfInterest = 'name') => {
-    console.log('[addPoiMarkers] Function called with points:', points); 
+  const addMarkersToLayer = (points: PointOfInterest[], icon: L.Icon | L.DivIcon, titleKey: keyof PointOfInterest = 'name'): L.LayerGroup | null => {
     if (!mapRef.current) {
-      console.error('[addPoiMarkers] Error: Map is not initialized.');
-      return;
+      console.error('[addMarkersToLayer] Error: Map is not initialized.');
+      return null;
     }
 
-    console.log('[addPoiMarkers] Clearing existing POI markers.');
-    clearPoiMarkers(); 
-
-    const newMarkers: L.Marker[] = [];
+    const markers: L.Marker[] = [];
     points.forEach((point, index) => {
       try {
-        let title: string;
-        if (titleKey in point && typeof point[titleKey] === 'string') {
-          title = point[titleKey] as string;
-        } else {
-          title = point.name || 'Location';
-        }
+        let title = (titleKey in point && typeof point[titleKey] === 'string') ? 
+                   point[titleKey] as string : 
+                   point.name || 'Location';
 
-        console.log(`[addPoiMarkers] Creating marker ${index + 1} for:`, point.name, `at [${point.lat}, ${point.lng}]`);
         const marker = L.marker([point.lat, point.lng], {
           icon: icon,
           title: title
         });
 
-        // Popup içeriğini oluştur
         let popupContent = `<div><strong>${point.name || 'Location'}</strong>`;
-        const address = point.address || ''; // Adresi al, yoksa boş string
+        const address = point.address || '';
         if (address) popupContent += `<p>${address}</p>`;
         if (point.phone) popupContent += `<p>Tel: <a href="tel:${point.phone.replace(/\s+/g, '')}" style="color: #4285F4; text-decoration: none;">${point.phone}</a></p>`;
-        if (point.distance) popupContent += `<p>Mesafe: ${point.distance.toFixed(2)} km</p>`;
+        if (point.distance) popupContent += `<p>Distance: ${point.distance.toFixed(2)} km</p>`;
         
-        // --- Rota Oluştur Butonu Eklendi (WiFi/Bisiklet için) --- 
-        popupContent += `<div><button 
-          class="popup-directions-button" 
-          style="margin-top: 5px;" /* Üstten küçük bir boşluk ekleyelim */
-          data-lat="${point.lat}" 
-          data-lng="${point.lng}" 
-          data-address="${encodeURIComponent(address)}" // Adresi encode et (boş olabilir)
-        >
-          Get Directions Here
-        </button></div>`;
-        // ---------------------------------------------------------
+        // Add Go button
+        popupContent += `
+          <div style="margin-top: 10px;">
+            <button 
+              class="popup-go-button" 
+              data-lat="${point.lat}" 
+              data-lng="${point.lng}" 
+              style="width: 100%; padding: 8px 12px; background-color: #34A853; color: white; border: none; border-radius: 4px; cursor: pointer;"
+            >
+              Go
+            </button>
+          </div>`;
 
         popupContent += `</div>`;
-
         marker.bindPopup(popupContent);
-        
-        // --- Yeni Event Listener Ekleme --- 
-        addPopupEventListener(marker, handleSetPharmacyAsDestination); // Handler'ı dışarıdan alıyor
-        // ---------------------------------
 
-        console.log(`[addPoiMarkers] Adding marker ${index + 1} to map.`);
-        marker.addTo(mapRef.current!);
-        newMarkers.push(marker);
-        console.log(`[addPoiMarkers] Marker ${index + 1} added successfully.`);
+        // Add event listener for Go button
+        marker.on('popupopen', () => {
+          if (!mapRef.current) return;
+          const popupPane = mapRef.current.getPane('popupPane');
+          if (!popupPane) return;
+
+          // Go button
+          const goButton = popupPane.querySelector('.popup-go-button');
+          if (goButton) {
+            const goListener = (event: Event) => {
+              const target = event.currentTarget as HTMLElement;
+              const btnLat = parseFloat(target.getAttribute('data-lat') || '0');
+              const btnLng = parseFloat(target.getAttribute('data-lng') || '0');
+              if (btnLat && btnLng && source) {
+                // Remove existing destination marker if it exists
+                if (destinationMarkerRef.current && mapRef.current) {
+                  mapRef.current.removeLayer(destinationMarkerRef.current);
+                  destinationMarkerRef.current = null;
+                  setDestination(null);
+                  if (destinationSearchRef.current) {
+                    destinationSearchRef.current.setQuery('');
+                  }
+                }
+                // Calculate route
+                getRoute(source, { lat: btnLat, lng: btnLng });
+              } else {
+                toast.error('Please set your starting location first');
+              }
+            };
+            goButton.removeEventListener('click', goListener);
+            goButton.addEventListener('click', goListener);
+          }
+        });
+
+        markers.push(marker);
       } catch (error) {
-        console.error(`[addPoiMarkers] Error processing point ${index}:`, point, error);
+        console.error(`[addMarkersToLayer] Error processing point ${index}:`, point, error);
       }
     });
 
-    poiMarkersRef.current = newMarkers; 
-    console.log('[addPoiMarkers] Updated poiMarkers state with new markers:', newMarkers);
+    if (markers.length > 0) {
+      return L.layerGroup(markers);
+    }
+    return null;
+  };
 
-    // Fit bounds (Sadece POI'ler için, rota çizilince zaten ayarlanacak)
-    if (newMarkers.length > 0 && !source) { // Eğer rota çizilmiyorsa sığdır
-      try {
-        const group = new L.FeatureGroup(newMarkers);
-        console.log('[addPoiMarkers] Fitting map bounds to new POI markers.');
-        mapRef.current!.fitBounds(group.getBounds().pad(0.1), {
+  // Update addPoiMarkers to use the same pattern
+  const addPoiMarkers = (points: PointOfInterest[], icon: L.Icon | L.DivIcon, titleKey: keyof PointOfInterest = 'name') => {
+    if (!mapRef.current) {
+      console.error('[addPoiMarkers] Error: Map is not initialized.');
+      return;
+    }
+
+    clearPoiMarkers();
+
+    const layerGroup = addMarkersToLayer(points, icon, titleKey);
+    if (layerGroup && mapRef.current) {
+      layerGroup.addTo(mapRef.current);
+      const layers = layerGroup.getLayers() as L.Marker[];
+      poiMarkersRef.current = layers;
+
+      // Fit bounds if needed
+      if (layers.length > 0 && !source) {
+        const group = L.featureGroup(layers);
+        mapRef.current.fitBounds(group.getBounds().pad(0.1), {
           maxZoom: 16
         });
-      } catch (error) {
-        console.error('[addPoiMarkers] Error fitting bounds:', error);
       }
-    } else if (newMarkers.length === 0) {
-        console.warn('[addPoiMarkers] No valid markers were created to fit bounds.');
     }
   };
 
@@ -710,31 +740,12 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
 
   // --- Rota ve Bilgilerini Temizleme Fonksiyonu --- 
   const clearRoute = () => {
-    // Clear all existing route layers
+    // Clear any existing route layers
     if (routeLayerRef.current && mapRef.current) {
-      if (routeLayerRef.current instanceof L.LayerGroup) {
-        routeLayerRef.current.eachLayer(layer => {
-          if (mapRef.current) mapRef.current.removeLayer(layer);
-        });
-      } else {
-        mapRef.current.removeLayer(routeLayerRef.current);
-      }
+      mapRef.current.removeLayer(routeLayerRef.current);
       routeLayerRef.current = null;
     }
-    
-    // Also clear the previous route layer if it exists
-    if (prevRouteLayerRef.current && mapRef.current) {
-      if (prevRouteLayerRef.current instanceof L.LayerGroup) {
-        prevRouteLayerRef.current.eachLayer(layer => {
-          if (mapRef.current) mapRef.current.removeLayer(layer);
-        });
-      } else {
-        mapRef.current.removeLayer(prevRouteLayerRef.current);
-      }
-      prevRouteLayerRef.current = null;
-    }
-    
-    // Reset route info state
+    // Clear route info state
     setRouteInfo(null);
     setTransitInfo(null);
     setShowTransitInfo(false);
@@ -868,12 +879,6 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
     };
   }, [mapRef, activeInput]); // Add activeInput dependency if needed for map click logic
 
-  useEffect(() => {
-    if (!source || !destination || !mapRef.current) return;
-    console.log("[useEffect Source/Dest Change] Triggering getRoute");
-    getRoute(source, destination);
-  }, [source, destination, mapRef, transportMode, departureTime]);
-
   const getRoute = async (start: Coordinate, end: Coordinate) => {
     if (!mapRef.current) {
       console.error('[getRoute] Map not initialized');
@@ -881,18 +886,13 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
     }
     setLoadingRoute(true);
     
-    // Always clear previous routes before creating a new one
+    // Always clear existing route first
     clearRoute();
-    
-    // Construct the query URL
-    const apiUrl = `${import.meta.env.VITE_BACKEND_API_URL}/api/route/directions/?origin=${start.lat},${start.lng}&destination=${end.lat},${end.lng}&mode=${transportMode}&departure_time=${encodeURIComponent(departureTime)}`;
     
     try {
       const token = localStorage.getItem('token');
       const requestData = { start, end, transport_mode: transportMode }; 
       const endpoint = `${import.meta.env.VITE_BACKEND_API_URL}/api/directions/route/`;
-
-      console.log('[getRoute] Sending request with data:', requestData);
 
       const response = await axios.post<RouteResponse>(
         endpoint,
@@ -900,10 +900,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         { headers: { 'Authorization': `Token ${token}` } }
       );
 
-      console.log('[getRoute] Received response:', response.data);
-
       const routeData = response.data.routes?.[0]; 
-      console.log('[getRoute] Route data:', routeData);
 
       if (routeData?.geometry && mapRef.current) { 
         // Create outline layer for better visibility
@@ -932,33 +929,24 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         }).addTo(mapRef.current);
         
         // Group both layers together
-        const routeLayerGroup = L.layerGroup([routeOutline, newRouteLayer]);
-        prevRouteLayerRef.current = routeLayerGroup;
+        routeLayerRef.current = L.layerGroup([routeOutline, newRouteLayer]).addTo(mapRef.current);
 
-        // Rota bilgilerini state'e kaydet
-        const routeInfo = {
+        // Update route info state
+        setRouteInfo({
           distance: routeData.distance ?? null,
           durations: routeData.durations_by_mode || {}
-        };
-        console.log('[getRoute] Setting route info:', routeInfo);
-        setRouteInfo(routeInfo);
+        });
 
-        // Navigasyon adımlarını hazırla ve state'e kaydet
+        // Process navigation steps
         if (routeData.steps && Array.isArray(routeData.steps) && routeData.steps.length > 0) {
-          console.log('[getRoute] Processing navigation steps:', routeData.steps);
-          
-          const navigationSteps = routeData.steps.map(step => {
-            console.log('[getRoute] Processing step:', step);
-            return {
-              instruction: step.instruction || 'Continue straight',
-              distance: step.distance || 0,
-              duration: step.duration || 0,
-              maneuver: step.maneuver || 'straight',
-              bearing: 0
-            };
-          });
+          const navigationSteps = routeData.steps.map(step => ({
+            instruction: step.instruction || 'Continue straight',
+            distance: step.distance || 0,
+            duration: step.duration || 0,
+            maneuver: step.maneuver || 'straight',
+            bearing: 0
+          }));
 
-          // Son adım olarak varış noktasını ekle
           navigationSteps.push({
             instruction: 'You have arrived at your destination',
             distance: 0,
@@ -966,34 +954,21 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
             maneuver: 'arrive' as const,
             bearing: 0
           });
-
-          console.log('[getRoute] Final navigation steps:', navigationSteps);
           
-          const newNavState = {
+          setNavigation({
             isActive: false,
             steps: navigationSteps,
             currentStep: 0,
             remainingDistance: routeData.distance || 0,
             remainingDuration: routeData.durations_by_mode[transportMode] || 0,
             isRerouting: false
-          };
-          console.log('[getRoute] Setting navigation state:', newNavState);
-          
-          setNavigation(newNavState);
-          // setShowNavigationUI(true); // Bu satırı kaldırdık
-        } else {
-          console.warn('[getRoute] Invalid or empty steps:', routeData.steps);
-          toast.error('No route steps available');
+          });
         }
 
-        // Haritayı rotaya sığdır
+        // Fit map to route bounds
         const bounds = newRouteLayer.getBounds();
         mapRef.current.fitBounds(bounds.pad(0.1), { maxZoom: 16 }); 
       } else {
-        console.warn('[getRoute] Missing route data:', { 
-          hasGeometry: !!routeData?.geometry, 
-          hasMap: !!mapRef.current 
-        });
         toast.error('Could not display route on map');
       }
     } catch (error: unknown) {
@@ -1002,12 +977,10 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       if (axios.isAxiosError(err)) {
         console.error('[getRoute] Response data:', err.response?.data);
       }
-      clearRoute();
       toast.error('Failed to get directions');
-      setShowTransitInfo(false);
-      setTransitInfo(null);
       
-      // Navigasyon state'ini sıfırla
+      // Reset all states on error
+      clearRoute();
       setNavigation({
         isActive: false,
         steps: [],
@@ -1093,61 +1066,6 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         mapRef.current.removeLayer(markerRef.current); 
         markerRef.current = null;
     }
-  };
-
-  // Updated addPoiMarkers to accept a ref and data
-  const addMarkersToLayer = (points: PointOfInterest[], icon: L.Icon, titleKey: keyof PointOfInterest = 'name'): L.LayerGroup | null => {
-    if (!mapRef.current) {
-      console.error('[addMarkersToLayer] Error: Map is not initialized.');
-      return null;
-    }
-    console.log(`[addMarkersToLayer] Adding ${points.length} markers.`);
-
-    const markers: L.Marker[] = [];
-    points.forEach((point, index) => {
-      try {
-        let title = (point[titleKey] as string) || point.name || 'Location';
-        const marker = L.marker([point.lat, point.lng], {
-          icon: icon,
-          title: title
-        });
-
-        let popupContent = `<div><strong>${title}</strong>`;
-        const address = point.address || '';
-        if (address) popupContent += `<p>${address}</p>`;
-        if (point.phone) popupContent += `<p>Tel: <a href="tel:${point.phone.replace(/\s+/g, '')}" style="color: #4285F4; text-decoration: none;">${point.phone}</a></p>`;
-        if (point.distance) popupContent += `<p>Mesafe: ${point.distance.toFixed(2)} km</p>`;
-        
-        // --- Rota Oluştur Butonu Eklendi (WiFi/Bisiklet için) --- 
-        popupContent += `<div><button 
-          class="popup-directions-button" 
-          style="margin-top: 5px;" /* Üstten küçük bir boşluk ekleyelim */
-          data-lat="${point.lat}" 
-          data-lng="${point.lng}" 
-          data-address="${encodeURIComponent(address)}" // Adresi encode et (boş olabilir)
-        >
-          Get Directions Here
-        </button></div>`;
-        // ---------------------------------------------------------
-
-        popupContent += `</div>`;
-        marker.bindPopup(popupContent);
-
-        // --- Yeni Event Listener Ekleme (WiFi/Bisiklet için) --- 
-        addPopupEventListener(marker, handleSetPharmacyAsDestination); // Aynı handler'ı kullanabiliriz
-        // -----------------------------------------------------
-        
-        markers.push(marker);
-      } catch (error) {
-        console.error(`[addMarkersToLayer] Error processing point ${index}:`, point, error);
-      }
-    });
-
-    if (markers.length > 0) {
-        const layerGroup = L.layerGroup(markers);
-        return layerGroup;
-    }
-    return null;
   };
 
   // Fetch functions for WiFi and Bicycle points

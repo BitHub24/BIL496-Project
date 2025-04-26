@@ -69,7 +69,7 @@
 .left-menu-item.active {
   transform: scale(1.05);
   background-color: #e3f2fd;
-  border-color: #4285f4;
+  border: none;
 }
 
 /* Font Awesome icon styles */

@@ -192,6 +192,7 @@ const Login: React.FC<LoginProps> = ({ setIsLoggedIn }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
     try {
       const response = await fetch(`${BACKEND_API_URL}/api/users/login/`, {
@@ -212,7 +213,7 @@ const Login: React.FC<LoginProps> = ({ setIsLoggedIn }) => {
       if (data.token) {
         localStorage.setItem("token", data.token);
         console.log("Token stored in localStorage");
-        setIsLoggedIn(true); // Set login state to true after successful login
+        setIsLoggedIn(true);
       } else {
         console.error("Token not found in login response!");
         throw new Error("Login successful, but token missing in response.");
@@ -232,6 +233,8 @@ const Login: React.FC<LoginProps> = ({ setIsLoggedIn }) => {
       } else {
         setError("An unknown error occurred during login");
       }
+    } finally {
+      setLoading(false);
     }
   };
 
