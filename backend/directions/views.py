@@ -15,7 +15,6 @@ import logging
 import os # Dosya yolu için eklendi
 import time # Zaman ölçümü için eklendi
 import math # Matematik işlemleri için eklendi
-from django.contrib.gis.geos import Point # Koordinat kontrolü için eklendi (GeoDjango gerekmez)
 from decimal import Decimal # Decimal ile karşılaştırma için eklendi
 
 # Gerekli olabilecek yeni importlar (Placeholder)

@@ -1,5 +1,4 @@
 from django.db import models
-from django.contrib.gis.db import models as gis_models # Eğer GeoDjango kuruluysa, yoksa normal models kullan
 from django.conf import settings
 
 class RoadSegment(models.Model):
