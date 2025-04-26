@@ -119,6 +119,8 @@ interface NavigationState {
   remainingDistance: number;
   remainingDuration: number;
   isRerouting: boolean;
+  lastRecalculationTime: number; // Add timestamp of last recalculation
+  routePolyline: L.LatLng[] | null; // Add the route polyline points
 }
 
 // Yeni Prop Arayüzü
@@ -192,14 +194,22 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
     steps: [],
     remainingDistance: 0,
     remainingDuration: 0,
-    isRerouting: false
+    isRerouting: false,
+    lastRecalculationTime: 0,
+    routePolyline: null
   });
   const [userLocation, setUserLocation] = useState<Coordinate | null>(null);
   const [userHeading, setUserHeading] = useState<number | null>(null);
   const [watchId, setWatchId] = useState<number | null>(null);
   const [isNavigationMode, setIsNavigationMode] = useState(false);
   const [showNavigationUI, setShowNavigationUI] = useState(false);
-
+  const [routeDeviation, setRouteDeviation] = useState<boolean>(false);
+  const [progressToNextStep, setProgressToNextStep] = useState<number>(0);
+  
+  // Add refs for tracking navigation state
+  const userLocationRef = useRef<Coordinate | null>(null);
+  const navigationRef = useRef<NavigationState | null>(null);
+  
   // Add a new state variable to track pharmacy visibility
   const [showPharmacies, setShowPharmacies] = useState<boolean>(false);
 
@@ -918,8 +928,8 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         const newRouteLayer = L.geoJSON(routeData.geometry, {
           style: {
             color: transportMode === 'transit' ? '#673AB7' : 
-                   transportMode === 'walking' ? '#34A853' :
-                   transportMode === 'cycling' ? '#EA4335' : '#4285F4',
+                  transportMode === 'walking' ? '#34A853' :
+                  transportMode === 'cycling' ? '#EA4335' : '#4285F4',
             weight: 3,
             opacity: 0.8,
             lineJoin: 'round',
@@ -927,6 +937,23 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
             dashArray: transportMode === 'transit' ? '5, 5' : undefined
           }
         }).addTo(mapRef.current);
+        
+        // Extract polyline points from the GeoJSON
+        let routePolyline: L.LatLng[] = [];
+        if (routeData.geometry.type === 'LineString') {
+          // Handle LineString
+          routePolyline = routeData.geometry.coordinates.map(
+            (coord: [number, number]) => new L.LatLng(coord[1], coord[0])
+          );
+        } else if (routeData.geometry.type === 'MultiLineString') {
+          // Handle MultiLineString
+          routeData.geometry.coordinates.forEach((line: [number, number][]) => {
+            const linePoints = line.map(
+              (coord: [number, number]) => new L.LatLng(coord[1], coord[0])
+            );
+            routePolyline = [...routePolyline, ...linePoints];
+          });
+        }
         
         // Group both layers together
         routeLayerRef.current = L.layerGroup([routeOutline, newRouteLayer]).addTo(mapRef.current);
@@ -944,26 +971,35 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
             distance: step.distance || 0,
             duration: step.duration || 0,
             maneuver: step.maneuver || 'straight',
-            bearing: 0
+            bearing: step.bearing || 0
           }));
 
           navigationSteps.push({
             instruction: 'You have arrived at your destination',
             distance: 0,
             duration: 0,
-            maneuver: 'arrive' as const,
+            maneuver: 'arrive',
             bearing: 0
           });
           
-          setNavigation({
-            isActive: false,
+          const newNavigationState = {
+            isActive: navigation.isActive,
             steps: navigationSteps,
             currentStep: 0,
             remainingDistance: routeData.distance || 0,
             remainingDuration: routeData.durations_by_mode[transportMode] || 0,
-            isRerouting: false
-          });
+            isRerouting: false,
+            lastRecalculationTime: Date.now(),
+            routePolyline: routePolyline
+          };
+          
+          setNavigation(newNavigationState);
+          navigationRef.current = newNavigationState;
         }
+
+        // Reset deviation state when a new route is calculated
+        setRouteDeviation(false);
+        setProgressToNextStep(0);
 
         // Fit map to route bounds
         const bounds = newRouteLayer.getBounds();
@@ -987,7 +1023,9 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         currentStep: 0,
         remainingDistance: 0,
         remainingDuration: 0,
-        isRerouting: false
+        isRerouting: false,
+        lastRecalculationTime: 0,
+        routePolyline: null
       });
       setShowNavigationUI(false);
     } finally {
@@ -1264,8 +1302,17 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       toast.error("Please select both source and destination first!");
       return;
     }
+    
+    // Reset navigation state
+    setRouteDeviation(false);
+    setProgressToNextStep(0);
+    
+    // Recalculate route from current location if available
+    if (userLocation) {
+      getRoute(userLocation, destination);
+    }
 
-    // Konum izlemeyi başlat
+    // Start location tracking with high accuracy and frequency
     if ("geolocation" in navigator) {
       const id = navigator.geolocation.watchPosition(
         (position) => {
@@ -1273,15 +1320,22 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
             lat: position.coords.latitude,
             lng: position.coords.longitude
           };
+          
+          // Update refs for other functions to access
+          userLocationRef.current = newLocation;
+          
+          // Update state
           setUserLocation(newLocation);
           
-          // Kullanıcının yönünü al (varsa)
+          // Get heading if available
           if (position.coords.heading !== null) {
             setUserHeading(position.coords.heading);
           }
 
-          // Rotadan sapma kontrolünü şimdilik kaldırdık
-          // checkRouteDeviation(newLocation);
+          // Check if we've deviated from the route
+          if (navigationRef.current && !navigationRef.current.isRerouting) {
+            checkRouteDeviation(newLocation);
+          }
         },
         (error) => {
           console.error("Error getting location:", error);
@@ -1296,9 +1350,29 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       setWatchId(id);
     }
 
+    // Update UI states
     setIsNavigationMode(true);
     setShowNavigationUI(true);
-    setNavigation(prev => ({ ...prev, isActive: true }));
+    
+    // Update navigation state
+    setNavigation(prev => {
+      const newState = { ...prev, isActive: true };
+      navigationRef.current = newState;
+      return newState;
+    });
+    
+    // If map exists, adjust settings for navigation
+    if (mapRef.current) {
+      // Set appropriate zoom level
+      mapRef.current.setZoom(18);
+      
+      // Enable rotate to follow heading if available
+      if (userHeading !== null) {
+        mapRef.current.setBearing(userHeading);
+      }
+    }
+    
+    toast.success("Navigation started. Follow the blue route.");
   };
 
   const stopNavigation = () => {
@@ -1313,14 +1387,248 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
     setUserHeading(null);
   };
 
-  // checkRouteDeviation fonksiyonunu şimdilik kaldıralım
-  // const checkRouteDeviation = async (currentLocation: Coordinate) => { ... }
+  // Add a function to calculate distance between a point and a line segment (for route deviation detection)
+  const pointToSegmentDistance = (
+    point: L.LatLng,
+    lineStart: L.LatLng,
+    lineEnd: L.LatLng
+  ): number => {
+    const x = point.lat;
+    const y = point.lng;
+    const x1 = lineStart.lat;
+    const y1 = lineStart.lng;
+    const x2 = lineEnd.lat;
+    const y2 = lineEnd.lng;
+    
+    const A = x - x1;
+    const B = y - y1;
+    const C = x2 - x1;
+    const D = y2 - y1;
+    
+    const dot = A * C + B * D;
+    const len_sq = C * C + D * D;
+    let param = -1;
+    
+    if (len_sq !== 0) {
+      param = dot / len_sq;
+    }
+    
+    let xx, yy;
+    
+    if (param < 0) {
+      xx = x1;
+      yy = y1;
+    } else if (param > 1) {
+      xx = x2;
+      yy = y2;
+    } else {
+      xx = x1 + param * C;
+      yy = y1 + param * D;
+    }
+    
+    const dx = x - xx;
+    const dy = y - yy;
+    
+    // Calculate the actual distance in meters using the haversine formula
+    return mapRef.current?.distance(point, new L.LatLng(xx, yy)) || 0;
+  };
+  
+  // Find the closest point on the route to the user's current position
+  const findClosestPointOnRoute = (
+    userLocation: L.LatLng,
+    routePoints: L.LatLng[]
+  ): { distance: number; segmentIndex: number; pointOnRoute: L.LatLng } => {
+    if (!routePoints || routePoints.length < 2) {
+      return { distance: Infinity, segmentIndex: 0, pointOnRoute: userLocation };
+    }
+    
+    let minDistance = Infinity;
+    let closestSegmentIndex = 0;
+    let closestPoint = userLocation;
+    
+    for (let i = 0; i < routePoints.length - 1; i++) {
+      const distance = pointToSegmentDistance(userLocation, routePoints[i], routePoints[i + 1]);
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestSegmentIndex = i;
+        
+        // Calculate the actual closest point on the segment
+        const segStart = routePoints[i];
+        const segEnd = routePoints[i + 1];
+        
+        // Find parameter t for parametric equation of the line
+        const dx = segEnd.lat - segStart.lat;
+        const dy = segEnd.lng - segStart.lng;
+        const dot = (userLocation.lat - segStart.lat) * dx + (userLocation.lng - segStart.lng) * dy;
+        const len_sq = dx * dx + dy * dy;
+        let t = Math.max(0, Math.min(1, dot / len_sq));
+        
+        // Calculate the closest point
+        closestPoint = new L.LatLng(
+          segStart.lat + t * dx,
+          segStart.lng + t * dy
+        );
+      }
+    }
+    
+    return { distance: minDistance, segmentIndex: closestSegmentIndex, pointOnRoute: closestPoint };
+  };
+  
+  // Add the route deviation check function
+  const checkRouteDeviation = (currentLocation: Coordinate) => {
+    if (!navigationRef.current?.routePolyline || navigationRef.current.routePolyline.length < 2) {
+      return;
+    }
+    
+    // Convert currentLocation to L.LatLng
+    const userLatLng = new L.LatLng(currentLocation.lat, currentLocation.lng);
+    
+    // Find the closest point on the route
+    const { distance, segmentIndex, pointOnRoute } = findClosestPointOnRoute(
+      userLatLng,
+      navigationRef.current.routePolyline
+    );
+    
+    // Define threshold for deviation (in meters)
+    const DEVIATION_THRESHOLD = 30; // meters
+    
+    // Check if user has deviated from route
+    const hasDeviated = distance > DEVIATION_THRESHOLD;
+    
+    // If deviation status has changed, update state
+    if (hasDeviated !== routeDeviation) {
+      setRouteDeviation(hasDeviated);
+      
+      // If newly deviated, show notification
+      if (hasDeviated) {
+        console.log(`[Navigation] User has deviated from route by ${distance.toFixed(2)}m`);
+        
+        // Check if we need to recalculate (not too frequent)
+        const timeSinceLastRecalculation = Date.now() - navigationRef.current.lastRecalculationTime;
+        const MIN_RECALCULATION_INTERVAL = 10000; // 10 seconds
+        
+        if (timeSinceLastRecalculation > MIN_RECALCULATION_INTERVAL) {
+          // Set rerouting flag
+          setNavigation(prev => ({ ...prev, isRerouting: true }));
+          navigationRef.current = { ...navigationRef.current, isRerouting: true };
+          
+          // Recalculate route
+          if (source && destination && !loadingRoute) {
+            // Use current location as new source
+            const newSource = { lat: currentLocation.lat, lng: currentLocation.lng };
+            console.log('[Navigation] Recalculating route due to deviation');
+            getRoute(newSource, destination);
+            
+            // Update source marker
+            if (sourceMarkerRef.current && mapRef.current) {
+              mapRef.current.removeLayer(sourceMarkerRef.current);
+              sourceMarkerRef.current = L.marker([newSource.lat, newSource.lng], { icon: sourceIcon }).addTo(mapRef.current);
+            }
+            
+            // Update source state
+            setSource(newSource);
+            
+            // Find nearest address and update search box
+            findNearestAddress(newSource.lat, newSource.lng).then(address => {
+              if (sourceSearchRef.current) {
+                sourceSearchRef.current.setQuery(address);
+              }
+            });
+          }
+        }
+      }
+    }
+    
+    // If we're on route, check progress to next step
+    if (!hasDeviated && navigationRef.current.steps.length > 0) {
+      updateNavigationProgress(segmentIndex, userLatLng);
+    }
+  };
+  
+  // Function to update progress and detect step completion
+  const updateNavigationProgress = (segmentIndex: number, userLocation: L.LatLng) => {
+    if (!navigationRef.current?.routePolyline || !navigationRef.current.steps.length) {
+      return;
+    }
+    
+    const currentStepIndex = navigationRef.current.currentStep;
+    const totalSteps = navigationRef.current.steps.length;
+    
+    if (currentStepIndex >= totalSteps - 1) {
+      // Already at last step (arrival), check if we've reached destination
+      if (destination) {
+        const distanceToDest = mapRef.current?.distance(
+          userLocation,
+          new L.LatLng(destination.lat, destination.lng)
+        ) || 0;
+        
+        // If within 20 meters of destination, consider arrived
+        if (distanceToDest < 20) {
+          toast.success("You have arrived at your destination!");
+          stopNavigation();
+        }
+      }
+      return;
+    }
+    
+    // Calculate how far we are through the current step
+    const routePoints = navigationRef.current.routePolyline;
+    const stepsCount = navigationRef.current.steps.length;
+    const pointsPerStep = Math.floor(routePoints.length / stepsCount);
+    
+    // Approximate step boundaries in the polyline
+    const currentStepStartIdx = currentStepIndex * pointsPerStep;
+    const nextStepStartIdx = (currentStepIndex + 1) * pointsPerStep;
+    
+    // If we're past the next step's starting point
+    if (segmentIndex >= nextStepStartIdx) {
+      // Move to next step
+      console.log(`[Navigation] Advancing to step ${currentStepIndex + 1}`);
+      
+      const currentStep = navigationRef.current.steps[currentStepIndex];
+      const nextStep = navigationRef.current.steps[currentStepIndex + 1];
+      
+      // Calculate remaining distance and duration
+      const remainingDistance = navigationRef.current.remainingDistance - currentStep.distance;
+      const remainingDuration = navigationRef.current.remainingDuration - currentStep.duration;
+      
+      // Update navigation state
+      const newNavState = {
+        ...navigationRef.current,
+        currentStep: currentStepIndex + 1,
+        remainingDistance: Math.max(0, remainingDistance),
+        remainingDuration: Math.max(0, remainingDuration)
+      };
+      
+      setNavigation(newNavState);
+      navigationRef.current = newNavState;
+      
+      // Play sound or vibrate for step change
+      if (typeof navigator.vibrate === 'function') {
+        navigator.vibrate(200);
+      }
+      
+      // Announce new instruction
+      const speechEnabled = false; // Set to true to enable voice guidance
+      if (speechEnabled && 'speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(nextStep.instruction);
+        window.speechSynthesis.speak(utterance);
+      }
+      
+      setProgressToNextStep(0);
+    } else {
+      // Update progress within current step
+      const stepProgress = (segmentIndex - currentStepStartIdx) / (nextStepStartIdx - currentStepStartIdx);
+      setProgressToNextStep(Math.min(Math.max(0, stepProgress * 100), 100));
+    }
+  };
 
-  // Kullanıcı konumunu gösteren marker'ı güncelle
+  // Also update userLocation effect to reposition map during navigation
   useEffect(() => {
     if (!mapRef.current || !userLocation) return;
 
-    // Kullanıcı konumu marker'ı
+    // Create or update user location marker
     const userMarker = L.marker([userLocation.lat, userLocation.lng], {
       icon: L.divIcon({
         className: 'user-location-marker',
@@ -1333,9 +1641,18 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       })
     }).addTo(mapRef.current);
 
-    // Haritayı kullanıcı konumuna odakla (navigasyon modunda)
+    // In navigation mode, keep the map centered on user location and rotate map if heading available
     if (isNavigationMode) {
-      mapRef.current.setView([userLocation.lat, userLocation.lng], 18);
+      // Center map on user location
+      mapRef.current.setView([userLocation.lat, userLocation.lng], mapRef.current.getZoom());
+      
+      // If heading is available and navigation is active, rotate map to match heading
+      if (userHeading !== null && navigation.isActive) {
+        // Check if map has setBearing method (implemented in some Leaflet plugins)
+        if ((mapRef.current as any).setBearing) {
+          (mapRef.current as any).setBearing(userHeading);
+        }
+      }
     }
 
     return () => {
@@ -1343,11 +1660,11 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         mapRef.current.removeLayer(userMarker);
       }
     };
-  }, [userLocation, userHeading, isNavigationMode]);
+  }, [userLocation, userHeading, isNavigationMode, navigation.isActive]);
 
   return (
     <div className="map-container">
-      <div className="search-container">
+      <div className={`search-container ${isNavigationMode ? 'navigation-active' : ''}`}>
         <div className={`search-box-wrapper ${activeInput === 'source' ? 'active' : ''}`} onClick={() => setActiveInput('source')}>
           <div className="search-box-with-button">
             <SearchBox
@@ -1466,6 +1783,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
 
       {/* Left-side menu */}
       <LeftSideMenu
+        className={isNavigationMode ? 'navigation-active' : ''}
         isLoadingTaxis={isLoadingTaxis}
         showWifi={showWifi}
         loadingWifi={loadingWifi}
@@ -1501,6 +1819,34 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       {/* Navigasyon UI */}
       {showNavigationUI && (
         <div className="navigation-panel">
+          {/* Add rerouting indicator */}
+          {navigation.isRerouting && (
+            <div className="rerouting-banner" style={{
+              backgroundColor: '#FFEB3B',
+              color: '#333',
+              padding: '10px',
+              textAlign: 'center',
+              fontWeight: 'bold',
+              marginBottom: '10px'
+            }}>
+              Rerouting... Finding best path to your destination
+            </div>
+          )}
+          
+          {/* Add route deviation warning */}
+          {routeDeviation && !navigation.isRerouting && (
+            <div className="deviation-warning" style={{
+              backgroundColor: '#FF5722',
+              color: 'white',
+              padding: '10px',
+              textAlign: 'center',
+              fontWeight: 'bold',
+              marginBottom: '10px'
+            }}>
+              You've strayed from the route. Recalculating...
+            </div>
+          )}
+          
           <div className="navigation-header" style={{
             borderBottom: '1px solid #eee',
             paddingBottom: '10px',
@@ -1542,6 +1888,24 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
                 }}>
                   {formatRouteDistance(navigation.steps[navigation.currentStep]?.distance)}
                 </div>
+                
+                {/* Add progress indicator for current step */}
+                {navigation.currentStep < navigation.steps.length - 1 && (
+                  <div className="step-progress-container" style={{
+                    height: '4px',
+                    backgroundColor: '#e0e0e0',
+                    borderRadius: '2px',
+                    marginTop: '5px',
+                    overflow: 'hidden'
+                  }}>
+                    <div className="step-progress-bar" style={{
+                      height: '100%',
+                      width: `${progressToNextStep}%`,
+                      backgroundColor: '#4285F4',
+                      transition: 'width 0.3s ease-in-out'
+                    }} />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1630,6 +1994,45 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
           </div>
         </div>
       )}
+
+      {/* Add custom CSS for navigation marker */}
+      <style>
+        {`
+          .user-location-marker {
+            background: transparent !important;
+          }
+          .user-location-dot {
+            position: relative;
+            width: 20px;
+            height: 20px;
+            transition: transform 0.3s ease-in-out;
+          }
+          .user-location-dot .dot {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background-color: #4285F4;
+            border: 2px solid white;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+          }
+          .user-location-dot .arrow {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 16px solid #4285F4;
+            top: 0;
+            left: 50%;
+            transform: translate(-50%, -13px) rotate(180deg);
+            display: ${userHeading !== null ? 'block' : 'none'};
+          }
+        `}
+      </style>
 
       <SaveFavoriteModal
         isOpen={showFavoriteModal}

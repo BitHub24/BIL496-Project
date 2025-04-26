@@ -20,6 +20,24 @@
   background-color: white;
   border-radius: 8px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transform: translateY(0);
+  opacity: 1;
+  transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+}
+
+/* Hide search container during navigation on mobile */
+@media (max-width: 768px) {
+  .search-container.navigation-active {
+    transform: translateY(-120%);
+    opacity: 0;
+    pointer-events: none;
+  }
+  
+  .left-side-menu.navigation-active {
+    transform: translateX(-120%);
+    opacity: 0;
+    pointer-events: none;
+  }
 }
 
 /* Sağ Alt Kontroller Konteyneri (Güncellendi) */
@@ -890,4 +908,17 @@
 .route-button i,
 .navigation-button i {
   margin-right: 8px;
+}
+
+.left-side-menu {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1000;
+  transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+  opacity: 1;
 }
