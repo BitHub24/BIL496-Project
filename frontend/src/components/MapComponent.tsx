@@ -109,7 +109,7 @@ interface NavigationStep {
   distance: number;
   duration: number;
   maneuver: string;
-  bearing: number;
+  bearing: number; // Make sure bearing is defined in the interface
 }
 
 interface NavigationState {
@@ -121,6 +121,8 @@ interface NavigationState {
   isRerouting: boolean;
   lastRecalculationTime: number; // Add timestamp of last recalculation
   routePolyline: L.LatLng[] | null; // Add the route polyline points
+  userDistanceOnRoute: number; // Track user's progress along the route
+  lastUserPosition: Coordinate | null; // Track last known position
 }
 
 // Yeni Prop Arayüzü
@@ -196,7 +198,9 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
     remainingDuration: 0,
     isRerouting: false,
     lastRecalculationTime: 0,
-    routePolyline: null
+    routePolyline: null,
+    userDistanceOnRoute: 0,
+    lastUserPosition: null
   });
   const [userLocation, setUserLocation] = useState<Coordinate | null>(null);
   const [userHeading, setUserHeading] = useState<number | null>(null);
@@ -894,6 +898,8 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       console.error('[getRoute] Map not initialized');
       return;
     }
+    
+    console.log(`[getRoute] Getting route from ${start.lat},${start.lng} to ${end.lat},${end.lng}`);
     setLoadingRoute(true);
     
     // Always clear existing route first
@@ -971,7 +977,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
             distance: step.distance || 0,
             duration: step.duration || 0,
             maneuver: step.maneuver || 'straight',
-            bearing: step.bearing || 0
+            bearing: (step as any).bearing || 0 // Use type assertion to avoid the error
           }));
 
           navigationSteps.push({
@@ -982,16 +988,26 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
             bearing: 0
           });
           
+          // Save current navigation state values for transition
+          const isActive = navigationRef.current?.isActive || false;
+          const lastUserPosition = userLocation || navigationRef.current?.lastUserPosition || null;
+          
+          // Create new navigation state
           const newNavigationState = {
-            isActive: navigation.isActive,
+            isActive: isActive,
             steps: navigationSteps,
             currentStep: 0,
             remainingDistance: routeData.distance || 0,
             remainingDuration: routeData.durations_by_mode[transportMode] || 0,
             isRerouting: false,
             lastRecalculationTime: Date.now(),
-            routePolyline: routePolyline
+            routePolyline: routePolyline,
+            userDistanceOnRoute: 0,
+            lastUserPosition: lastUserPosition
           };
+          
+          console.log('[getRoute] Updating navigation state with new route data', 
+            `steps: ${navigationSteps.length}, distance: ${routeData.distance}m, duration: ${routeData.durations_by_mode[transportMode]}s`);
           
           setNavigation(newNavigationState);
           navigationRef.current = newNavigationState;
@@ -1001,10 +1017,15 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         setRouteDeviation(false);
         setProgressToNextStep(0);
 
-        // Fit map to route bounds
+        // Fit map to route bounds if not in active navigation
         const bounds = newRouteLayer.getBounds();
-        mapRef.current.fitBounds(bounds.pad(0.1), { maxZoom: 16 }); 
+        if (!navigation.isActive) {
+          mapRef.current.fitBounds(bounds.pad(0.1), { maxZoom: 16 }); 
+        }
+        
+        console.log('[getRoute] Route calculation successful');
       } else {
+        console.error('[getRoute] Route data missing or invalid', routeData);
         toast.error('Could not display route on map');
       }
     } catch (error: unknown) {
@@ -1025,7 +1046,9 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
         remainingDuration: 0,
         isRerouting: false,
         lastRecalculationTime: 0,
-        routePolyline: null
+        routePolyline: null,
+        userDistanceOnRoute: 0,
+        lastUserPosition: null
       });
       setShowNavigationUI(false);
     } finally {
@@ -1312,7 +1335,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       getRoute(userLocation, destination);
     }
 
-    // Start location tracking with high accuracy and frequency
+    // Start location tracking with high accuracy and high frequency
     if ("geolocation" in navigator) {
       const id = navigator.geolocation.watchPosition(
         (position) => {
@@ -1320,6 +1343,15 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
             lat: position.coords.latitude,
             lng: position.coords.longitude
           };
+          
+          // Calculate distance moved since last position
+          const hasMovedSignificantly = navigation.lastUserPosition ? 
+            calculateDistance(
+              newLocation.lat, 
+              newLocation.lng, 
+              navigation.lastUserPosition.lat, 
+              navigation.lastUserPosition.lng
+            ) > 5 : true; // 5 meters threshold for "significant" movement
           
           // Update refs for other functions to access
           userLocationRef.current = newLocation;
@@ -1332,9 +1364,16 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
             setUserHeading(position.coords.heading);
           }
 
-          // Check if we've deviated from the route
-          if (navigationRef.current && !navigationRef.current.isRerouting) {
-            checkRouteDeviation(newLocation);
+          // Always update position on route and check for significant changes
+          if (navigationRef.current && navigationRef.current.isActive) {
+            // Update the navigation state with new position
+            setNavigation(prev => ({
+              ...prev,
+              lastUserPosition: newLocation
+            }));
+            
+            // Always check deviation to update position
+            checkRouteDeviation(newLocation, hasMovedSignificantly);
           }
         },
         (error) => {
@@ -1356,7 +1395,11 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
     
     // Update navigation state
     setNavigation(prev => {
-      const newState = { ...prev, isActive: true };
+      const newState = { 
+        ...prev, 
+        isActive: true,
+        lastUserPosition: userLocation
+      };
       navigationRef.current = newState;
       return newState;
     });
@@ -1368,7 +1411,10 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       
       // Enable rotate to follow heading if available
       if (userHeading !== null) {
-        mapRef.current.setBearing(userHeading);
+        // Check if setBearing exists (from a plugin)
+        if (typeof (mapRef.current as any).setBearing === 'function') {
+          (mapRef.current as any).setBearing(userHeading);
+        }
       }
     }
     
@@ -1476,8 +1522,9 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
   };
   
   // Add the route deviation check function
-  const checkRouteDeviation = (currentLocation: Coordinate) => {
+  const checkRouteDeviation = (currentLocation: Coordinate, forceRecalculation: boolean = false) => {
     if (!navigationRef.current?.routePolyline || navigationRef.current.routePolyline.length < 2) {
+      console.log('[Navigation] No route polyline available, skipping deviation check');
       return;
     }
     
@@ -1496,53 +1543,64 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
     // Check if user has deviated from route
     const hasDeviated = distance > DEVIATION_THRESHOLD;
     
-    // If deviation status has changed, update state
-    if (hasDeviated !== routeDeviation) {
-      setRouteDeviation(hasDeviated);
-      
-      // If newly deviated, show notification
-      if (hasDeviated) {
-        console.log(`[Navigation] User has deviated from route by ${distance.toFixed(2)}m`);
-        
-        // Check if we need to recalculate (not too frequent)
-        const timeSinceLastRecalculation = Date.now() - navigationRef.current.lastRecalculationTime;
-        const MIN_RECALCULATION_INTERVAL = 10000; // 10 seconds
-        
-        if (timeSinceLastRecalculation > MIN_RECALCULATION_INTERVAL) {
-          // Set rerouting flag
-          setNavigation(prev => ({ ...prev, isRerouting: true }));
-          navigationRef.current = { ...navigationRef.current, isRerouting: true };
-          
-          // Recalculate route
-          if (source && destination && !loadingRoute) {
-            // Use current location as new source
-            const newSource = { lat: currentLocation.lat, lng: currentLocation.lng };
-            console.log('[Navigation] Recalculating route due to deviation');
-            getRoute(newSource, destination);
-            
-            // Update source marker
-            if (sourceMarkerRef.current && mapRef.current) {
-              mapRef.current.removeLayer(sourceMarkerRef.current);
-              sourceMarkerRef.current = L.marker([newSource.lat, newSource.lng], { icon: sourceIcon }).addTo(mapRef.current);
-            }
-            
-            // Update source state
-            setSource(newSource);
-            
-            // Find nearest address and update search box
-            findNearestAddress(newSource.lat, newSource.lng).then(address => {
-              if (sourceSearchRef.current) {
-                sourceSearchRef.current.setQuery(address);
-              }
-            });
-          }
-        }
-      }
-    }
+    // Log position data for debugging
+    console.log(`[Navigation] Position update - Distance from route: ${distance.toFixed(2)}m, Deviation: ${hasDeviated}`);
     
-    // If we're on route, check progress to next step
-    if (!hasDeviated && navigationRef.current.steps.length > 0) {
-      updateNavigationProgress(segmentIndex, userLatLng);
+    // Update position on route regardless of deviation
+    updateNavigationProgress(segmentIndex, userLatLng);
+    
+    // Check if recalculation is needed
+    const shouldRecalculate = hasDeviated || forceRecalculation;
+    
+    if (shouldRecalculate) {
+      // Check time since last recalculation
+      const timeSinceLastRecalculation = Date.now() - navigationRef.current.lastRecalculationTime;
+      
+      // Make the recalculation interval shorter for better responsiveness
+      const MIN_RECALCULATION_INTERVAL = hasDeviated ? 5000 : 15000; // 5 seconds if deviated, 15 if just a regular update
+      
+      // Recalculate if it's been long enough or we're forcing recalculation
+      if (timeSinceLastRecalculation > MIN_RECALCULATION_INTERVAL || forceRecalculation) {
+        // Set rerouting flag
+        setNavigation(prev => ({ ...prev, isRerouting: true }));
+        navigationRef.current = { ...navigationRef.current, isRerouting: true };
+        
+        // Visual indication of rerouting
+        if (hasDeviated) {
+          setRouteDeviation(true);
+        }
+        
+        // Recalculate route
+        if (destination && !loadingRoute) {
+          // Use current location as new source
+          const newSource = { lat: currentLocation.lat, lng: currentLocation.lng };
+          console.log('[Navigation] Recalculating route', hasDeviated ? 'due to deviation' : 'due to position update');
+          
+          // Update source state before getting route
+          setSource(newSource);
+          
+          // Get new route from current position to destination
+          getRoute(newSource, destination);
+          
+          // Update source marker
+          if (sourceMarkerRef.current && mapRef.current) {
+            mapRef.current.removeLayer(sourceMarkerRef.current);
+            sourceMarkerRef.current = L.marker([newSource.lat, newSource.lng], { icon: sourceIcon }).addTo(mapRef.current);
+          }
+          
+          // Find nearest address and update search box
+          findNearestAddress(newSource.lat, newSource.lng).then(address => {
+            if (sourceSearchRef.current) {
+              sourceSearchRef.current.setQuery(address);
+            }
+          });
+        }
+      } else {
+        console.log(`[Navigation] Skipping recalculation, last recalculation was ${(timeSinceLastRecalculation/1000).toFixed(1)}s ago`);
+      }
+    } else if (hasDeviated !== routeDeviation) {
+      // Update deviation status if changed
+      setRouteDeviation(hasDeviated);
     }
   };
   
@@ -1649,7 +1707,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       // If heading is available and navigation is active, rotate map to match heading
       if (userHeading !== null && navigation.isActive) {
         // Check if map has setBearing method (implemented in some Leaflet plugins)
-        if ((mapRef.current as any).setBearing) {
+        if (typeof (mapRef.current as any).setBearing === 'function') {
           (mapRef.current as any).setBearing(userHeading);
         }
       }
@@ -1661,6 +1719,16 @@ const MapComponent: React.FC<MapComponentProps> = ({ isLoggedIn, onLogout }) => 
       }
     };
   }, [userLocation, userHeading, isNavigationMode, navigation.isActive]);
+
+  // Add helper function for distance calculation
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    if (!mapRef.current) return 0;
+    
+    // Use Leaflet's built-in distance calculation (Haversine formula)
+    const point1 = new L.LatLng(lat1, lon1);
+    const point2 = new L.LatLng(lat2, lon2);
+    return mapRef.current.distance(point1, point2);
+  };
 
   return (
     <div className="map-container">
